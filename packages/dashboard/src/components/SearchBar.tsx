@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardStore } from "../store";
 
 const typeBadgeColors: Record<string, string> = {
@@ -21,8 +21,9 @@ export default function SearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Build a lookup map for node details
-  const nodeMap = new Map(
-    (graph?.nodes ?? []).map((n) => [n.id, n]),
+  const nodeMap = useMemo(
+    () => new Map((graph?.nodes ?? []).map((n) => [n.id, n])),
+    [graph],
   );
 
   const topResults = searchResults.slice(0, 5);

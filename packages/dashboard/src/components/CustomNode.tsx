@@ -42,6 +42,7 @@ export interface CustomNodeData extends Record<string, unknown> {
   summary: string;
   complexity: string;
   isHighlighted: boolean;
+  searchScore?: number;
   isSelected: boolean;
 }
 
@@ -58,7 +59,14 @@ export default function CustomNode({
   if (data.isSelected) {
     ringClass = "ring-2 ring-white";
   } else if (data.isHighlighted) {
-    ringClass = "ring-2 ring-yellow-400";
+    const score = data.searchScore ?? 1;
+    if (score <= 0.1) {
+      ringClass = "ring-2 ring-yellow-300";
+    } else if (score <= 0.3) {
+      ringClass = "ring-2 ring-yellow-400";
+    } else {
+      ringClass = "ring-2 ring-yellow-500/60";
+    }
   }
 
   const truncatedName =

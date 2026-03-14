@@ -26,19 +26,23 @@ export default function GraphView() {
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!graph) return { initialNodes: [] as CustomFlowNode[], initialEdges: [] as Edge[] };
 
-    const flowNodes: CustomFlowNode[] = graph.nodes.map((node) => ({
-      id: node.id,
-      type: "custom" as const,
-      position: { x: 0, y: 0 },
-      data: {
-        label: node.name,
-        nodeType: node.type,
-        summary: node.summary,
-        complexity: node.complexity,
-        isHighlighted: searchResults.some((r) => r.nodeId === node.id),
-        isSelected: selectedNodeId === node.id,
-      },
-    }));
+    const flowNodes: CustomFlowNode[] = graph.nodes.map((node) => {
+      const matchResult = searchResults.find((r) => r.nodeId === node.id);
+      return {
+        id: node.id,
+        type: "custom" as const,
+        position: { x: 0, y: 0 },
+        data: {
+          label: node.name,
+          nodeType: node.type,
+          summary: node.summary,
+          complexity: node.complexity,
+          isHighlighted: !!matchResult,
+          searchScore: matchResult?.score,
+          isSelected: selectedNodeId === node.id,
+        },
+      };
+    });
 
     const flowEdges: Edge[] = graph.edges.map((edge, i) => ({
       id: `e-${i}`,
