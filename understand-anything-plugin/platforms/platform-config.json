@@ -1,4 +1,20 @@
 {
+  "_shared": {
+    "agentModels": {
+      "project-scanner": "sonnet",
+      "file-analyzer": "opus",
+      "architecture-analyzer": "opus",
+      "tour-builder": "opus",
+      "graph-reviewer": "sonnet"
+    },
+    "agentToolSets": {
+      "project-scanner": "Bash, Glob, Grep, Read, Write",
+      "file-analyzer": "Bash, Read, Glob, Grep, Write",
+      "architecture-analyzer": "Bash, Read, Grep, Glob, Write",
+      "tour-builder": "Bash, Read, Grep, Glob, Write",
+      "graph-reviewer": "Bash, Read, Write, Glob, Grep"
+    }
+  },
   "codex": {
     "skillDir": "${CODEX_HOME:-$HOME/.codex}/skills/understand-anything",
     "extraFrontmatter": "",
