@@ -1,6 +1,6 @@
 ---
 name: understand
-description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships
+description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships. 中文触发词：分析代码库、代码架构、知识图谱、理解代码、代码关系图、项目架构分析、代码可视化
 argument-hint: [options]
 ---
 
