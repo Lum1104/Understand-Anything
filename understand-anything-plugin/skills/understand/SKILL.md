@@ -2,6 +2,7 @@
 name: understand
 description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships
 argument-hint: [options]
+{{EXTRA_FRONTMATTER}}
 ---
 
 # /understand
@@ -50,7 +51,7 @@ Determine whether to run a full analysis or incremental update.
 
 ## Phase 1 — SCAN (Full analysis only)
 
-Dispatch the **project-scanner** agent with this prompt:
+{{AGENT_DISPATCH_PROJECT_SCANNER}}
 
 > Scan this project directory to discover all source files, detect languages and frameworks.
 > Project root: `$PROJECT_ROOT`
@@ -72,7 +73,7 @@ After the agent completes, read `$PROJECT_ROOT/.understand-anything/intermediate
 
 Batch the file list from Phase 1 into groups of **5-10 files each** (aim for balanced batch sizes).
 
-For each batch, dispatch a **file-analyzer** agent. Run up to **3 agents concurrently** using parallel dispatch. Each agent gets this prompt:
+For each batch, dispatch a **file-analyzer** agent. {{AGENT_CONCURRENT_NOTE}} Each agent gets this prompt:
 
 > Analyze these source files and produce GraphNode and GraphEdge objects.
 > Project root: `$PROJECT_ROOT`
@@ -116,7 +117,7 @@ Merge all file-analyzer results into a single set of nodes and edges. Then perfo
 
 ## Phase 4 — ARCHITECTURE
 
-Dispatch the **architecture-analyzer** agent with this prompt:
+{{AGENT_DISPATCH_ARCHITECTURE_ANALYZER}}
 
 > Analyze this codebase's structure to identify architectural layers.
 > Project root: `$PROJECT_ROOT`
@@ -141,7 +142,7 @@ After the agent completes, read `$PROJECT_ROOT/.understand-anything/intermediate
 
 ## Phase 5 — TOUR
 
-Dispatch the **tour-builder** agent with this prompt:
+{{AGENT_DISPATCH_TOUR_BUILDER}}
 
 > Create a guided learning tour for this codebase.
 > Project root: `$PROJECT_ROOT`
@@ -192,7 +193,7 @@ Assemble the full KnowledgeGraph JSON object:
 
 1. Write the assembled graph to `$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json`.
 
-2. Dispatch the **graph-reviewer** agent with this prompt:
+2. {{AGENT_DISPATCH_GRAPH_REVIEWER}}
 
    > Validate the knowledge graph at `$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json`.
    > Project root: `$PROJECT_ROOT`
