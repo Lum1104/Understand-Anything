@@ -95,6 +95,59 @@ An interactive web dashboard opens with your codebase visualized as a graph — 
 
 ---
 
+## Multi-Platform Installation
+
+Understand-Anything works across multiple AI coding platforms. Claude Code is supported natively via the plugin marketplace. For other platforms, use the install scripts below.
+
+### Prerequisites
+
+```bash
+git clone https://github.com/Lum1104/Understand-Anything.git
+cd Understand-Anything
+pnpm install
+cd understand-anything-plugin && pnpm run build:platforms && cd ..
+```
+
+### Codex
+
+```bash
+bash scripts/install-codex.sh
+# Restart Codex, then: "Use understand-anything to analyze this codebase"
+```
+
+### OpenClaw
+
+```bash
+bash scripts/install-openclaw.sh
+# In OpenClaw: @understand analyze this codebase
+```
+
+### OpenCode
+
+```bash
+bash scripts/install-opencode.sh
+# In OpenCode: /understand
+```
+
+### Cursor
+
+```bash
+bash scripts/install-cursor.sh
+# Restart Cursor to load the plugin
+```
+
+### Platform Compatibility
+
+| Platform | Status | Install Method | Agent Support |
+|----------|--------|----------------|---------------|
+| Claude Code | Native | Plugin marketplace | Full (Agent tool) |
+| Codex | Supported | Install script | Via collab mode |
+| OpenClaw | Supported | Install script | Via agent skills |
+| OpenCode | Supported | Install script | Via Agent tool |
+| Cursor | Supported | Install script | Via Agent tool |
+
+---
+
 ## ✨ Features
 
 <p align="center">
