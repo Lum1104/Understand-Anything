@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "build:platforms": "node platforms/build.mjs",
     "test": "vitest run"
   },
   "dependencies": {
