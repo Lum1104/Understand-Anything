@@ -1,0 +1,80 @@
+{
+  "codex": {
+    "skillDir": "${CODEX_HOME:-$HOME/.codex}/skills/understand-anything",
+    "extraFrontmatter": "",
+    "tools": {
+      "TOOL_BASH": "shell",
+      "TOOL_READ": "read_file",
+      "TOOL_GLOB": "list_dir",
+      "TOOL_GREP": "grep",
+      "TOOL_WRITE": "write_file",
+      "TOOL_AGENT": "codex --collab"
+    },
+    "agentDispatch": {
+      "method": "codex-collab",
+      "instruction": "Use Codex collaborative mode (`codex --collab`) to dispatch this as a sub-task. Pass the full prompt below to the collaborative agent.",
+      "concurrentNote": "Dispatch up to 3 collaborative agents concurrently when processing file batches."
+    },
+    "agentFormat": "AGENTS.md",
+    "agentFrontmatter": false
+  },
+  "openclaw": {
+    "skillDir": "~/.openclaw/skills/understand-anything",
+    "extraFrontmatter": "version: 1.0.5",
+    "tools": {
+      "TOOL_BASH": "Bash",
+      "TOOL_READ": "Read",
+      "TOOL_GLOB": "Glob",
+      "TOOL_GREP": "Grep",
+      "TOOL_WRITE": "Write",
+      "TOOL_AGENT": "@agent-name"
+    },
+    "agentDispatch": {
+      "method": "skill-invocation",
+      "instruction": "Invoke the agent as a skill using `@ua-{agent-name}`. The agent skill will handle the analysis and write results to the intermediate directory.",
+      "concurrentNote": "Invoke up to 3 agent skills concurrently when processing file batches."
+    },
+    "agentFormat": "skills",
+    "agentFrontmatter": true,
+    "agentSkillPrefix": "ua-"
+  },
+  "opencode": {
+    "skillDir": "~/.config/opencode/skills/understand-anything",
+    "extraFrontmatter": "license: MIT\ncompatibility: opencode",
+    "tools": {
+      "TOOL_BASH": "Bash",
+      "TOOL_READ": "Read",
+      "TOOL_GLOB": "Glob",
+      "TOOL_GREP": "Grep",
+      "TOOL_WRITE": "Write",
+      "TOOL_AGENT": "Agent"
+    },
+    "agentDispatch": {
+      "method": "agent-tool",
+      "instruction": "Use the Agent tool to dispatch a sub-agent with the prompt below. The agent definition is in the `agents/` directory.",
+      "concurrentNote": "Dispatch up to 3 agents concurrently when processing file batches."
+    },
+    "agentFormat": "agents",
+    "agentFrontmatter": true
+  },
+  "cursor": {
+    "skillDir": "~/.cursor/plugins/understand-anything",
+    "extraFrontmatter": "",
+    "tools": {
+      "TOOL_BASH": "Bash",
+      "TOOL_READ": "Read",
+      "TOOL_GLOB": "Glob",
+      "TOOL_GREP": "Grep",
+      "TOOL_WRITE": "Write",
+      "TOOL_AGENT": "Agent"
+    },
+    "agentDispatch": {
+      "method": "agent-tool",
+      "instruction": "Use the Agent tool to dispatch a sub-agent with the prompt below. The agent definition is in the `agents/` directory.",
+      "concurrentNote": "Dispatch up to 3 agents concurrently when processing file batches."
+    },
+    "agentFormat": "agents",
+    "agentFrontmatter": true,
+    "cursorManifest": true
+  }
+}
