@@ -36,7 +36,7 @@ Reading code is hard. Understanding a whole codebase is harder. Documentation is
 
 Understand Anything fixes this by combining **LLM intelligence** with **static analysis** to produce a living, explorable map of your project — with plain-English explanations for everything.
 
----
+--------
 
 ## 🎯 Who is this for?
 
