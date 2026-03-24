@@ -145,6 +145,13 @@ Tell Antigravity:
 Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Understand-Anything/refs/heads/main/.antigravity/INSTALL.md
 ```
 
+### Gemini CLI
+
+Tell Gemini CLI:
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Understand-Anything/refs/heads/main/.gemini-cli/INSTALL.md
+```
+
 ### Platform Compatibility
 
 | Platform | Status | Install Method |
@@ -155,6 +162,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Und
 | OpenClaw | ✅ Supported | AI-driven install |
 | Cursor | ✅ Supported | Auto-discovery |
 | Antigravity | ✅ Supported | AI-driven install |
+| Gemini CLI | ✅ Supported | AI-driven install |
 
 ---
 

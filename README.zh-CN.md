@@ -144,6 +144,13 @@ Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Und
 Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Understand-Anything/refs/heads/main/.antigravity/INSTALL.md
 ```
 
+### Gemini CLI
+
+告诉 Gemini CLI：
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Understand-Anything/refs/heads/main/.gemini-cli/INSTALL.md
+```
+
 ### 多平台兼容
 
 | 平台 | 状态 | 安装方式 |
@@ -154,6 +161,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Und
 | OpenClaw | ✅ 支持 | AI驱动安装 |
 | Cursor | ✅ 支持 | 自动发现 |
 | Antigravity | ✅ 支持 | AI驱动安装 |
+| Gemini CLI | ✅ 支持 | AI 驱动安装 |
 
 ---
 
