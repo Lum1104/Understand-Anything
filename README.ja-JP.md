@@ -145,6 +145,13 @@ Antigravityに以下を伝えてください：
 Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Understand-Anything/refs/heads/main/.antigravity/INSTALL.md
 ```
 
+### Gemini CLI
+
+Gemini CLI に以下のように伝えます：
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Understand-Anything/refs/heads/main/.gemini-cli/INSTALL.md
+```
+
 ### プラットフォーム互換性
 
 | プラットフォーム | ステータス | インストール方法 |
@@ -155,6 +162,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/Lum1104/Und
 | OpenClaw | ✅ サポート | AI駆動インストール |
 | Cursor | ✅ サポート | 自動検出 |
 | Antigravity | ✅ サポート | AI駆動インストール |
+| Gemini CLI | ✅ サポート | AI 主導のインストール |
 
 ---
 
