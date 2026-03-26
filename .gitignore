@@ -7,3 +7,4 @@ dist
 .env.*
 coverage/
 *.log
+.claude/
