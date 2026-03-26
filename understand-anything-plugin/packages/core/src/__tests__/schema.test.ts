@@ -77,24 +77,22 @@ describe("schema validation", () => {
     expect(result.errors!.length).toBeGreaterThan(0);
   });
 
-  it("rejects node with invalid type", () => {
+  it('falls back unknown node type "invalid_type" to "concept"', () => {
     const graph = structuredClone(validGraph);
     (graph.nodes[0] as any).type = "invalid_type";
 
     const result = validateGraph(graph);
-    expect(result.success).toBe(false);
-    expect(result.errors).toBeDefined();
-    expect(result.errors!.some((e) => e.includes("type"))).toBe(true);
+    expect(result.success).toBe(true);
+    expect(result.data!.nodes[0].type).toBe("concept");
   });
 
-  it("rejects edge with invalid EdgeType", () => {
+  it('falls back unknown edge type "not_a_real_edge_type" to "related"', () => {
     const graph = structuredClone(validGraph);
     (graph.edges[0] as any).type = "not_a_real_edge_type";
 
     const result = validateGraph(graph);
-    expect(result.success).toBe(false);
-    expect(result.errors).toBeDefined();
-    expect(result.errors!.some((e) => e.includes("type"))).toBe(true);
+    expect(result.success).toBe(true);
+    expect(result.data!.edges[0].type).toBe("related");
   });
 
   it("rejects weight out of range (>1)", () => {
@@ -229,20 +227,22 @@ describe("schema validation", () => {
     expect(result.data!.edges[0].type).toBe("depends_on");
   });
 
-  it('rejects "tests" edge type — direction-inverting alias is unsafe', () => {
+  it('normalizes "tests" edge type to "tested_by"', () => {
     const graph = structuredClone(validGraph);
     (graph.edges[0] as any).type = "tests";
 
     const result = validateGraph(graph);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    expect(result.data!.edges[0].type).toBe("tested_by");
   });
 
-  it("still rejects truly invalid edge types after normalization", () => {
+  it('falls back unknown edge type "totally_bogus" to "related"', () => {
     const graph = structuredClone(validGraph);
     (graph.edges[0] as any).type = "totally_bogus";
 
     const result = validateGraph(graph);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    expect(result.data!.edges[0].type).toBe("related");
   });
 
   it("NODE_TYPE_ALIASES values are never alias keys (no chains)", () => {
