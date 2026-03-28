@@ -29,12 +29,18 @@ Verify every **node** has ALL required fields with correct types:
 
 | Field | Type | Constraint |
 |---|---|---|
-| `id` | string | Non-empty, follows prefix convention (`file:`, `function:`, `class:`, `module:`, or `concept:`) |
-| `type` | string | One of: `file`, `function`, `class`, `module`, `concept` |
+| `id` | string | Non-empty, follows prefix convention (see valid prefixes below) |
+| `type` | string | One of the 13 valid node types (see below) |
 | `name` | string | Non-empty |
 | `summary` | string | Non-empty, not just the filename |
 | `tags` | string[] | At least 1 element, all lowercase and hyphenated |
 | `complexity` | string | One of: `simple`, `moderate`, `complex` |
+
+**Valid node types (13 total):**
+`file`, `function`, `class`, `module`, `concept`, `config`, `document`, `service`, `table`, `endpoint`, `pipeline`, `schema`, `resource`
+
+**Valid node ID prefixes:**
+`file:`, `function:`, `class:`, `module:`, `concept:`, `config:`, `document:`, `service:`, `table:`, `endpoint:`, `pipeline:`, `schema:`, `resource:`
 
 Verify every **edge** has ALL required fields with correct types:
 
@@ -42,12 +48,12 @@ Verify every **edge** has ALL required fields with correct types:
 |---|---|---|
 | `source` | string | Non-empty, references an existing node ID |
 | `target` | string | Non-empty, references an existing node ID |
-| `type` | string | One of the 18 valid edge types (see below) |
+| `type` | string | One of the 26 valid edge types (see below) |
 | `direction` | string | One of: `forward`, `backward`, `bidirectional` |
 | `weight` | number | Between 0.0 and 1.0 inclusive |
 
-**Valid edge types (18 total):**
-`imports`, `exports`, `contains`, `inherits`, `implements`, `calls`, `subscribes`, `publishes`, `middleware`, `reads_from`, `writes_to`, `transforms`, `validates`, `depends_on`, `tested_by`, `configures`, `related`, `similar_to`
+**Valid edge types (26 total):**
+`imports`, `exports`, `contains`, `inherits`, `implements`, `calls`, `subscribes`, `publishes`, `middleware`, `reads_from`, `writes_to`, `transforms`, `validates`, `depends_on`, `tested_by`, `configures`, `related`, `similar_to`, `deploys`, `serves`, `migrates`, `documents`, `provisions`, `routes`, `defines_schema`, `triggers`
 
 **Check 2 -- Referential Integrity (Critical)**
 
@@ -66,9 +72,9 @@ Verify every **edge** has ALL required fields with correct types:
 
 **Check 4 -- Layer Coverage (Critical)**
 
-- Every node with `type: "file"` MUST appear in exactly one layer's `nodeIds`
+- Every node with a file-level type (`file`, `config`, `document`, `service`, `pipeline`, `table`, `schema`, `resource`, `endpoint`) MUST appear in exactly one layer's `nodeIds`
 - No layer should have an empty `nodeIds` array
-- Log any file nodes missing from all layers, and any file nodes appearing in multiple layers
+- Log any file-level nodes missing from all layers, and any file-level nodes appearing in multiple layers
 
 **Check 5 -- Uniqueness (Critical)**
 
@@ -87,6 +93,25 @@ Verify every **edge** has ALL required fields with correct types:
 - No self-referencing edges (where `source` equals `target`)
 - No orphan nodes (nodes with zero edges connecting to or from them) -- log as warning, not critical
 
+**Check 8 -- Non-Code Node Quality Checks (Warning)**
+
+- Config nodes (type: `config`) should have at least one `configures` edge — warn if missing
+- Document nodes (type: `document`) should have at least one `documents` edge — warn if missing
+- Service nodes (type: `service`) should have at least one `deploys` or `depends_on` edge — warn if missing
+- Pipeline nodes (type: `pipeline`) should have at least one `triggers` edge — warn if missing
+- Table nodes (type: `table`) should have at least one `migrates` or `defines_schema` edge — warn if missing
+- Schema nodes (type: `schema`) should have at least one `defines_schema` edge — warn if missing
+- Resource nodes (type: `resource`) should have at least one `provisions` or `depends_on` edge — warn if missing
+- Endpoint nodes (type: `endpoint`) should have at least one `routes` or `defines_schema` edge — warn if missing
+
+**Check 9 -- Node Type / ID Prefix Consistency (Warning)**
+
+- Verify that each node's `type` field matches its ID prefix. For example:
+  - A node with `type: "config"` should have an ID starting with `config:`
+  - A node with `type: "document"` should have an ID starting with `document:`
+  - A node with `type: "file"` should have an ID starting with `file:`
+- Log any mismatches as warnings
+
 ### Script Output Format
 
 The script must write this exact JSON structure to the output file:
@@ -95,14 +120,17 @@ The script must write this exact JSON structure to the output file:
 {
   "scriptCompleted": true,
   "issues": ["Edge at index 14 references non-existent target node 'file:src/missing.ts'"],
-  "warnings": ["3 function nodes have no edges connecting to them"],
+  "warnings": [
+    "3 function nodes have no edges connecting to them",
+    "Config node 'config:tsconfig.json' has no 'configures' edges"
+  ],
   "stats": {
     "totalNodes": 42,
     "totalEdges": 87,
     "totalLayers": 5,
     "tourSteps": 8,
-    "nodeTypes": {"file": 20, "function": 15, "class": 7},
-    "edgeTypes": {"imports": 30, "contains": 40, "calls": 17}
+    "nodeTypes": {"file": 20, "function": 15, "class": 7, "config": 3, "document": 2, "service": 1},
+    "edgeTypes": {"imports": 30, "contains": 40, "calls": 17, "configures": 5, "documents": 3, "deploys": 2}
   }
 }
 ```
@@ -120,7 +148,7 @@ The script must write this exact JSON structure to the output file:
 - Zero nodes, edges, layers, or tour steps
 - Invalid edge types or node types
 - Edge weights outside 0.0-1.0 range
-- File nodes missing from all layers
+- File-level nodes missing from all layers
 - Duplicate node IDs
 
 **Warnings** (go into `warnings`):
@@ -128,6 +156,8 @@ The script must write this exact JSON structure to the output file:
 - Short or generic summaries
 - Tour step count outside 5-15 range
 - Self-referencing edges
+- Non-code nodes missing expected edge types (configures, documents, deploys, etc.)
+- Node type / ID prefix mismatches
 
 ### Executing the Script
 
@@ -160,15 +190,17 @@ Produce the final validation report JSON:
   "issues": [],
   "warnings": [
     "3 function nodes have no edges connecting to them",
-    "Node 'file:src/config.ts' has a generic summary"
+    "Node 'file:src/config.ts' has a generic summary",
+    "Config node 'config:tsconfig.json' has no 'configures' edges",
+    "Document node 'document:CHANGELOG.md' has no 'documents' edges"
   ],
   "stats": {
     "totalNodes": 42,
     "totalEdges": 87,
     "totalLayers": 5,
     "tourSteps": 8,
-    "nodeTypes": {"file": 20, "function": 15, "class": 7},
-    "edgeTypes": {"imports": 30, "contains": 40, "calls": 17}
+    "nodeTypes": {"file": 20, "function": 15, "class": 7, "config": 3, "document": 2, "service": 1},
+    "edgeTypes": {"imports": 30, "contains": 40, "calls": 17, "configures": 5, "documents": 3, "deploys": 2}
   }
 }
 ```
