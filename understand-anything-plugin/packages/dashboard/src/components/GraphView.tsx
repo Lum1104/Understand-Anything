@@ -480,7 +480,6 @@ function GraphViewInner() {
   const navigationLevel = useDashboardStore((s) => s.navigationLevel);
   const activeLayerId = useDashboardStore((s) => s.activeLayerId);
   const selectNode = useDashboardStore((s) => s.selectNode);
-  const openCodeViewer = useDashboardStore((s) => s.openCodeViewer);
   const drillIntoLayer = useDashboardStore((s) => s.drillIntoLayer);
   const focusNodeId = useDashboardStore((s) => s.focusNodeId);
   const setFocusNode = useDashboardStore((s) => s.setFocusNode);
@@ -523,10 +522,9 @@ function GraphViewInner() {
         drillIntoLayer(targetLayerId);
       } else {
         selectNode(node.id);
-        openCodeViewer(node.id);
       }
     },
-    [navigationLevel, drillIntoLayer, selectNode, openCodeViewer],
+    [navigationLevel, drillIntoLayer, selectNode],
   );
 
   const onPaneClick = useCallback(() => {
