@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDashboardStore } from "../store";
-import type { NodeType, EdgeType } from "@understand-anything/core/types";
+import type { NodeType, EdgeType, KnowledgeGraph, GraphNode } from "@understand-anything/core/types";
 
 // Badge color classes keyed by NodeType — must be kept in sync with core NodeType union.
 const typeBadgeColors: Record<NodeType, string> = {
@@ -78,6 +78,127 @@ function getDirectionalLabel(edgeType: string, isSource: boolean): string {
   return isSource ? labels.forward : labels.backward;
 }
 
+function DomainNodeDetails({ node, graph }: { node: GraphNode; graph: KnowledgeGraph }) {
+  const navigateToDomain = useDashboardStore((s) => s.navigateToDomain);
+  const selectNode = useDashboardStore((s) => s.selectNode);
+  const meta = (node as any).domainMeta as Record<string, unknown> | undefined;
+
+  if (node.type === "domain") {
+    const flows = graph.edges
+      .filter((e) => e.type === "contains_flow" && e.source === node.id)
+      .map((e) => graph.nodes.find((n) => n.id === e.target))
+      .filter(Boolean);
+
+    return (
+      <div className="space-y-3">
+        {meta?.entities && (meta.entities as string[]).length > 0 ? (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Entities</h4>
+            <div className="flex flex-wrap gap-1">
+              {(meta.entities as string[]).map((e) => (
+                <span key={e} className="text-[11px] px-2 py-0.5 rounded bg-elevated text-text-secondary">{e}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {meta?.businessRules && (meta.businessRules as string[]).length > 0 ? (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Business Rules</h4>
+            <ul className="text-[11px] text-text-secondary space-y-1">
+              {(meta.businessRules as string[]).map((r, i) => (
+                <li key={i} className="flex gap-1.5"><span className="text-accent shrink-0">-</span>{r}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {meta?.crossDomainInteractions && (meta.crossDomainInteractions as string[]).length > 0 ? (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Cross-Domain</h4>
+            <ul className="text-[11px] text-text-secondary space-y-1">
+              {(meta.crossDomainInteractions as string[]).map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {flows.length > 0 && (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Flows</h4>
+            <div className="space-y-1">
+              {flows.map((f) => (
+                <button
+                  key={f!.id}
+                  type="button"
+                  onClick={() => { navigateToDomain(node.id); selectNode(f!.id); }}
+                  className="block w-full text-left px-2 py-1.5 rounded bg-elevated hover:bg-accent/10 text-[11px] text-text-secondary hover:text-accent transition-colors"
+                >
+                  {f!.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (node.type === "flow") {
+    const steps = graph.edges
+      .filter((e) => e.type === "flow_step" && e.source === node.id)
+      .sort((a, b) => a.weight - b.weight)
+      .map((e) => graph.nodes.find((n) => n.id === e.target))
+      .filter(Boolean);
+
+    return (
+      <div className="space-y-3">
+        {meta?.entryPoint ? (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Entry Point</h4>
+            <div className="text-[11px] font-mono text-accent">{meta.entryPoint as string}</div>
+          </div>
+        ) : null}
+        {steps.length > 0 && (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Steps</h4>
+            <ol className="space-y-1">
+              {steps.map((s, i) => (
+                <li key={s!.id}>
+                  <button
+                    type="button"
+                    onClick={() => selectNode(s!.id)}
+                    className="block w-full text-left px-2 py-1.5 rounded bg-elevated hover:bg-accent/10 text-[11px] transition-colors"
+                  >
+                    <span className="text-accent/60 mr-1.5">{i + 1}.</span>
+                    <span className="text-text-secondary hover:text-accent">{s!.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (node.type === "step") {
+    return (
+      <div className="space-y-3">
+        {node.filePath && (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Implementation</h4>
+            <div className="text-[11px] font-mono text-text-secondary">
+              {node.filePath}
+              {node.lineRange && <span className="text-text-muted">:{node.lineRange[0]}-{node.lineRange[1]}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function NodeInfo() {
   const graph = useDashboardStore((s) => s.graph);
   const selectedNodeId = useDashboardStore((s) => s.selectedNodeId);
@@ -89,7 +210,11 @@ export default function NodeInfo() {
   const navigateToHistoryIndex = useDashboardStore((s) => s.navigateToHistoryIndex);
   const setFocusNode = useDashboardStore((s) => s.setFocusNode);
   const focusNodeId = useDashboardStore((s) => s.focusNodeId);
-  const node = graph?.nodes.find((n) => n.id === selectedNodeId) ?? null;
+  const viewMode = useDashboardStore((s) => s.viewMode);
+  const domainGraph = useDashboardStore((s) => s.domainGraph);
+
+  const activeGraph = viewMode === "domain" && domainGraph ? domainGraph : graph;
+  const node = activeGraph?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
   // Resolve history node names for the breadcrumb trail
   const historyNodes = nodeHistory.map((id) => {
@@ -105,7 +230,7 @@ export default function NodeInfo() {
     );
   }
 
-  const allEdges = graph?.edges ?? [];
+  const allEdges = activeGraph?.edges ?? [];
   const connections = allEdges.filter(
     (e) => e.source === node.id || e.target === node.id,
   );
@@ -256,6 +381,11 @@ export default function NodeInfo() {
         </div>
       )}
 
+      {/* Domain-specific details */}
+      {activeGraph && node && (node.type === "domain" || node.type === "flow" || node.type === "step") && (
+        <DomainNodeDetails node={node} graph={activeGraph} />
+      )}
+
       {/* Child classes/functions within this file */}
       {childNodes.length > 0 && (
         <div className="mb-4">
@@ -304,7 +434,7 @@ export default function NodeInfo() {
             {otherConnections.map((edge, i) => {
               const isSource = edge.source === node.id;
               const otherId = isSource ? edge.target : edge.source;
-              const otherNode = graph?.nodes.find((n) => n.id === otherId);
+              const otherNode = activeGraph?.nodes.find((n) => n.id === otherId);
               const dirLabel = getDirectionalLabel(edge.type, isSource);
               const arrow = isSource ? "\u2192" : "\u2190";
 
