@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Edge types (29 values across 7 categories)
+// Edge types (35 values across 8 categories)
 export const EdgeTypeSchema = z.enum([
   "imports", "exports", "contains", "inherits", "implements",  // Structural
   "calls", "subscribes", "publishes", "middleware",             // Behavioral
@@ -10,6 +10,7 @@ export const EdgeTypeSchema = z.enum([
   "deploys", "serves", "provisions", "triggers",               // Infrastructure
   "migrates", "documents", "routes", "defines_schema",         // Schema/Data
   "contains_flow", "flow_step", "cross_domain",                // Domain
+  "cites", "contradicts", "builds_on", "exemplifies", "categorized_under", "authored_by", // Knowledge
 ]);
 
 // Aliases that LLMs commonly generate instead of canonical node types
@@ -55,6 +56,20 @@ export const NODE_TYPE_ALIASES: Record<string, string> = {
   business_process: "flow",
   task: "step",
   business_step: "step",
+  // Knowledge aliases
+  note: "article",
+  page: "article",
+  post: "article",
+  person: "entity",
+  place: "entity",
+  thing: "entity",
+  tag: "topic",
+  category: "topic",
+  assertion: "claim",
+  hypothesis: "claim",
+  reference: "source",
+  citation: "source",
+  bibliography: "source",
 };
 
 // Aliases that LLMs commonly generate instead of canonical edge types
@@ -88,6 +103,17 @@ export const EDGE_TYPE_ALIASES: Record<string, string> = {
   has_flow: "contains_flow",
   next_step: "flow_step",
   interacts_with: "cross_domain",
+  // Knowledge aliases
+  references: "cites",
+  cited_by: "cites",
+  opposes: "contradicts",
+  elaborates: "builds_on",
+  illustrates: "exemplifies",
+  demonstrates: "exemplifies",
+  tagged_with: "categorized_under",
+  classified_as: "categorized_under",
+  written_by: "authored_by",
+  created_by: "authored_by",
   // Note: "implemented_by" is intentionally NOT aliased to "implements" —
   // it inverts edge direction (see commit fd0df15). The LLM should use
   // "implements" with correct source/target instead.
@@ -334,6 +360,7 @@ export const GraphNodeSchema = z.object({
     "config", "document", "service", "table", "endpoint",
     "pipeline", "schema", "resource",
     "domain", "flow", "step",
+    "article", "entity", "topic", "claim", "source",
   ]),
   name: z.string(),
   filePath: z.string().optional(),
@@ -380,6 +407,7 @@ export const ProjectMetaSchema = z.object({
 
 export const KnowledgeGraphSchema = z.object({
   version: z.string(),
+  kind: z.enum(["codebase", "knowledge"]).optional(),
   project: ProjectMetaSchema,
   nodes: z.array(GraphNodeSchema),
   edges: z.array(GraphEdgeSchema),

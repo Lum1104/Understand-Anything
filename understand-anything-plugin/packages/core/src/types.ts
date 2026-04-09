@@ -1,20 +1,22 @@
-// Node types (16 total: 5 code + 8 non-code + 3 domain)
+// Node types (21 total: 5 code + 8 non-code + 3 domain + 5 knowledge)
 export type NodeType =
   | "file" | "function" | "class" | "module" | "concept"
   | "config" | "document" | "service" | "table" | "endpoint"
   | "pipeline" | "schema" | "resource"
-  | "domain" | "flow" | "step";
+  | "domain" | "flow" | "step"
+  | "article" | "entity" | "topic" | "claim" | "source";
 
-// Edge types (29 total in 7 categories: Structural, Behavioral, Data flow, Dependencies, Semantic, Infrastructure/Schema, Domain)
+// Edge types (35 total in 8 categories: Structural, Behavioral, Data flow, Dependencies, Semantic, Infrastructure/Schema, Domain, Knowledge)
 export type EdgeType =
-  | "imports" | "exports" | "contains" | "inherits" | "implements"  // Structural
-  | "calls" | "subscribes" | "publishes" | "middleware"              // Behavioral
-  | "reads_from" | "writes_to" | "transforms" | "validates"         // Data flow
-  | "depends_on" | "tested_by" | "configures"                       // Dependencies
-  | "related" | "similar_to"                                         // Semantic
-  | "deploys" | "serves" | "provisions" | "triggers"                // Infrastructure
-  | "migrates" | "documents" | "routes" | "defines_schema"          // Schema/Data
-  | "contains_flow" | "flow_step" | "cross_domain";                 // Domain
+  | "imports" | "exports" | "contains" | "inherits" | "implements"
+  | "calls" | "subscribes" | "publishes" | "middleware"
+  | "reads_from" | "writes_to" | "transforms" | "validates"
+  | "depends_on" | "tested_by" | "configures"
+  | "related" | "similar_to"
+  | "deploys" | "serves" | "provisions" | "triggers"
+  | "migrates" | "documents" | "routes" | "defines_schema"
+  | "contains_flow" | "flow_step" | "cross_domain"
+  | "cites" | "contradicts" | "builds_on" | "exemplifies" | "categorized_under" | "authored_by";
 
 // Optional domain metadata for domain/flow/step nodes
 export interface DomainMeta {
@@ -25,7 +27,17 @@ export interface DomainMeta {
   entryType?: "http" | "cli" | "event" | "cron" | "manual";
 }
 
-// GraphNode with 16 types: 5 code + 8 non-code + 3 domain
+// Optional knowledge metadata for article/entity/topic/claim/source nodes
+export interface KnowledgeMeta {
+  format?: "obsidian" | "logseq" | "dendron" | "foam" | "karpathy" | "zettelkasten" | "plain";
+  wikilinks?: string[];
+  backlinks?: string[];
+  frontmatter?: Record<string, unknown>;
+  sourceUrl?: string;
+  confidence?: number; // 0-1, for LLM-inferred relationships
+}
+
+// GraphNode with 21 types: 5 code + 8 non-code + 3 domain + 5 knowledge
 export interface GraphNode {
   id: string;
   type: NodeType;
@@ -37,6 +49,7 @@ export interface GraphNode {
   complexity: "simple" | "moderate" | "complex";
   languageNotes?: string;
   domainMeta?: DomainMeta;
+  knowledgeMeta?: KnowledgeMeta;
 }
 
 // GraphEdge with rich relationship modeling
@@ -79,6 +92,7 @@ export interface ProjectMeta {
 // Root KnowledgeGraph
 export interface KnowledgeGraph {
   version: string;
+  kind?: "codebase" | "knowledge"; // undefined defaults to "codebase" for backward compat
   project: ProjectMeta;
   nodes: GraphNode[];
   edges: GraphEdge[];

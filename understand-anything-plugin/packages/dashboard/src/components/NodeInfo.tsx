@@ -20,6 +20,11 @@ const typeBadgeColors: Record<NodeType, string> = {
   domain: "text-node-concept border border-node-concept/30 bg-node-concept/10",
   flow: "text-node-pipeline border border-node-pipeline/30 bg-node-pipeline/10",
   step: "text-node-function border border-node-function/30 bg-node-function/10",
+  article: "text-node-document border border-node-document/30 bg-node-document/10",
+  entity: "text-node-concept border border-node-concept/30 bg-node-concept/10",
+  topic: "text-node-module border border-node-module/30 bg-node-module/10",
+  claim: "text-node-endpoint border border-node-endpoint/30 bg-node-endpoint/10",
+  source: "text-node-config border border-node-config/30 bg-node-config/10",
 };
 
 const complexityBadgeColors: Record<string, string> = {
@@ -29,7 +34,7 @@ const complexityBadgeColors: Record<string, string> = {
 };
 
 /**
- * Human-readable directional labels for all 29 edge types.
+ * Human-readable directional labels for all 35 edge types.
  * Must be kept in sync with core EdgeType.
  */
 const EDGE_LABELS: Record<EdgeType, { forward: string; backward: string }> = {
@@ -62,6 +67,12 @@ const EDGE_LABELS: Record<EdgeType, { forward: string; backward: string }> = {
   contains_flow: { forward: "contains flow", backward: "flow in" },
   flow_step: { forward: "flow step", backward: "step of" },
   cross_domain: { forward: "cross-domain to", backward: "cross-domain from" },
+  cites: { forward: "cites", backward: "cited by" },
+  contradicts: { forward: "contradicts", backward: "contradicted by" },
+  builds_on: { forward: "builds on", backward: "built upon by" },
+  exemplifies: { forward: "exemplifies", backward: "exemplified by" },
+  categorized_under: { forward: "categorized under", backward: "categorizes" },
+  authored_by: { forward: "authored by", backward: "author of" },
 };
 
 /**

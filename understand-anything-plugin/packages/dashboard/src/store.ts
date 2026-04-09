@@ -45,7 +45,7 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 /** Categories used for node type filter toggles. Single source of truth for NodeCategory. */
-export type NodeCategory = "code" | "config" | "docs" | "infra" | "data" | "domain";
+export type NodeCategory = "code" | "config" | "docs" | "infra" | "data" | "domain" | "knowledge";
 
 /** Find which layer a node belongs to. Returns layerId or null. */
 function findNodeLayer(graph: KnowledgeGraph, nodeId: string): string | null {
@@ -197,7 +197,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   pathFinderOpen: false,
   reactFlowInstance: null,
 
-  nodeTypeFilters: { code: true, config: true, docs: true, infra: true, data: true, domain: true },
+  nodeTypeFilters: { code: true, config: true, docs: true, infra: true, data: true, domain: true, knowledge: true },
 
   toggleNodeTypeFilter: (category) =>
     set((state) => ({

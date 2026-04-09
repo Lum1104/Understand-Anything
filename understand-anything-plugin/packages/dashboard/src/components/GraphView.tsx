@@ -57,6 +57,7 @@ const NODE_TYPE_TO_CATEGORY: Record<NodeType, NodeCategory> = {
   service: "infra", resource: "infra", pipeline: "infra",
   table: "data", endpoint: "data", schema: "data",
   domain: "domain", flow: "domain", step: "domain",
+  article: "knowledge", entity: "knowledge", topic: "knowledge", claim: "knowledge", source: "knowledge",
 } as const;
 
 // ── Helper components that must live inside <ReactFlow> ────────────────

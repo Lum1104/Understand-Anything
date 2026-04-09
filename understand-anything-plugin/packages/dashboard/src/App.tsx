@@ -376,6 +376,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
                 { key: "infra", label: "Infra", color: "var(--color-node-service)" },
                 { key: "data", label: "Data", color: "var(--color-node-table)" },
                 { key: "domain", label: "Domain", color: "var(--color-node-concept)" },
+                { key: "knowledge", label: "Knowledge", color: "var(--color-node-document)" },
               ] as const).map((cat) => (
                 <button
                   key={cat.key}
