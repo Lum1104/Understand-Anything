@@ -8,15 +8,15 @@ export type NodeType =
 
 // Edge types (35 total in 8 categories: Structural, Behavioral, Data flow, Dependencies, Semantic, Infrastructure/Schema, Domain, Knowledge)
 export type EdgeType =
-  | "imports" | "exports" | "contains" | "inherits" | "implements"
-  | "calls" | "subscribes" | "publishes" | "middleware"
-  | "reads_from" | "writes_to" | "transforms" | "validates"
-  | "depends_on" | "tested_by" | "configures"
-  | "related" | "similar_to"
-  | "deploys" | "serves" | "provisions" | "triggers"
-  | "migrates" | "documents" | "routes" | "defines_schema"
-  | "contains_flow" | "flow_step" | "cross_domain"
-  | "cites" | "contradicts" | "builds_on" | "exemplifies" | "categorized_under" | "authored_by";
+  | "imports" | "exports" | "contains" | "inherits" | "implements"  // Structural
+  | "calls" | "subscribes" | "publishes" | "middleware"              // Behavioral
+  | "reads_from" | "writes_to" | "transforms" | "validates"         // Data flow
+  | "depends_on" | "tested_by" | "configures"                       // Dependencies
+  | "related" | "similar_to"                                         // Semantic
+  | "deploys" | "serves" | "provisions" | "triggers"                // Infrastructure
+  | "migrates" | "documents" | "routes" | "defines_schema"          // Schema/Data
+  | "contains_flow" | "flow_step" | "cross_domain"                  // Domain
+  | "cites" | "contradicts" | "builds_on" | "exemplifies" | "categorized_under" | "authored_by";  // Knowledge
 
 // Optional domain metadata for domain/flow/step nodes
 export interface DomainMeta {
