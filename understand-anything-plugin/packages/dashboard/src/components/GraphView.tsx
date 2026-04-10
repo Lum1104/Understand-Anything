@@ -133,7 +133,6 @@ function SelectedNodeFitView() {
 
 function useOverviewGraph() {
   const graph = useDashboardStore((s) => s.graph);
-  const graphKind = useDashboardStore((s) => s.graph?.kind);
   const searchResults = useDashboardStore((s) => s.searchResults);
   const drillIntoLayer = useDashboardStore((s) => s.drillIntoLayer);
 
@@ -209,10 +208,9 @@ function useOverviewGraph() {
     for (const n of clusterNodes) {
       dims.set(n.id, { width: LAYER_CLUSTER_WIDTH, height: LAYER_CLUSTER_HEIGHT });
     }
-    const direction = graphKind === "knowledge" ? "TB" : "TB";
-    const laid = applyDagreLayout(clusterNodes as unknown as Node[], flowEdges, direction, dims);
+    const laid = applyDagreLayout(clusterNodes as unknown as Node[], flowEdges, "TB", dims);
     return { nodes: laid.nodes, edges: laid.edges };
-  }, [graph, graphKind, searchResults, drillIntoLayer]);
+  }, [graph, searchResults, drillIntoLayer]);
 }
 
 // ── Layer detail level: topology (dagre) + visual overlay ───────────────
@@ -432,10 +430,9 @@ function useLayerDetailTopology() {
       dims.set(n.id, { width: PORTAL_NODE_WIDTH, height: PORTAL_NODE_HEIGHT });
     }
 
-    const direction = graphKind === "knowledge" ? "TB" : "TB";
-    const laid = applyDagreLayout(allFlowNodes, allFlowEdges, direction, dims);
+    const laid = applyDagreLayout(allFlowNodes, allFlowEdges, "TB", dims);
     return { nodes: laid.nodes, edges: laid.edges, portalNodes, portalEdges, filteredEdges: filteredGraphEdges };
-  }, [graph, graphKind, activeLayerId, persona, handleNodeSelect, diffMode, changedNodeIds, affectedNodeIds, focusNodeId, nodeTypeFilters, drillIntoLayer]);
+  }, [graph, activeLayerId, persona, handleNodeSelect, diffMode, changedNodeIds, affectedNodeIds, focusNodeId, nodeTypeFilters, drillIntoLayer]);
 }
 
 /**
