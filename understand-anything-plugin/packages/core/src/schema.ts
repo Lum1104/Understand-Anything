@@ -71,6 +71,7 @@ export const NODE_TYPE_ALIASES: Record<string, string> = {
   tag: "topic",
   category: "topic",
   theme: "topic",
+  tag_topic: "topic",
   assertion: "claim",
   insight: "claim",
   takeaway: "claim",
