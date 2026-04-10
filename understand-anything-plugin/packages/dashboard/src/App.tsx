@@ -7,6 +7,8 @@ import DomainGraphView from "./components/DomainGraphView";
 import CodeViewer from "./components/CodeViewer";
 import SearchBar from "./components/SearchBar";
 import NodeInfo from "./components/NodeInfo";
+import KnowledgeInfo from "./components/KnowledgeInfo";
+import ReadingPanel from "./components/ReadingPanel";
 import LayerLegend from "./components/LayerLegend";
 import DiffToggle from "./components/DiffToggle";
 import FilterPanel from "./components/FilterPanel";
@@ -313,7 +315,8 @@ function Dashboard({ accessToken }: { accessToken: string }) {
   const isLearnMode = tourActive || persona === "junior";
   const sidebarContent = (
     <>
-      {selectedNodeId && <NodeInfo />}
+      {selectedNodeId && graph?.kind === "knowledge" && <KnowledgeInfo />}
+      {selectedNodeId && graph?.kind !== "knowledge" && <NodeInfo />}
       {isLearnMode && <LearnPanel />}
       {!selectedNodeId && !isLearnMode && <ProjectOverview />}
     </>
@@ -502,6 +505,9 @@ function Dashboard({ accessToken }: { accessToken: string }) {
             </div>
           </div>
         )}
+
+        {/* Reading panel overlay for knowledge graph articles */}
+        {!codeViewerOpen && <ReadingPanel />}
       </div>
 
       {/* Keyboard shortcuts help modal */}
