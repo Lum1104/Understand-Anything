@@ -1,0 +1,27 @@
+CREATE A COMPLIT SINGLE PAGE SHOPKEEPER WEBSITE WITH THE FOLLOWING :
+Shop DETAILS :
+- Name: KISHORI PRINTS & XEROX CENTRE
+- Location: Panchavati Park, Hingna, Nagpur - 441110
+- Phone Number: 7972271114
+- EMAIL ID. vthakre835@gmail.com 
+- Business Type: Printing, Xerox, Online Services, Lamination, Passport Photos
+Hero Section:
+   - FULL- WIDTH HERO IMAGE USING THIS URL IS METIONED BELOW.
+    - BIG HEADING + A SHOP NOW BUTTON THAT SCROLLS TO PRODDUCTS 
+PRODUCT CAROUSEL IMAGE ARE ALSO MENTIONED BELOW.
+PRODUCT CAROUSEL :
+   - HORIZONTAL SCROLLABLE OR AUTO-SLIDING CAROUSEL.
+-EACH PRODUCT CARD HAS . IMAGE, NAME, PRICE, ADD TO CAT BUTTEN.
+-USE THESE PRODUCT IMAGE:
+CART & EMAIL FEATURE. 
+- email should includ :customer name, mobile number,and list of items:
+-clean ,mobile -first,modern look
+- whatsapp floating button linking to wa.me/7972271114
+- no backed needed - pure HTML,CSS,JAVASCRIPT 
+hero images :
+
+https://ibb.co/6c2gt6tx
+
+https://ibb.co/6c2gt6tx
+
+Also integrate the form for the cart order that would be placed by the customer
