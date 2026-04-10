@@ -60,14 +60,23 @@ export const NODE_TYPE_ALIASES: Record<string, string> = {
   note: "article",
   page: "article",
   post: "article",
+  wiki_page: "article",
   person: "entity",
   place: "entity",
   thing: "entity",
+  tool: "entity",
+  paper: "entity",
+  organization: "entity",
+  org: "entity",
   tag: "topic",
   category: "topic",
+  theme: "topic",
   assertion: "claim",
+  insight: "claim",
+  takeaway: "claim",
   hypothesis: "claim",
   reference: "source",
+  raw: "source",
   citation: "source",
   bibliography: "source",
 };
@@ -106,12 +115,21 @@ export const EDGE_TYPE_ALIASES: Record<string, string> = {
   // Knowledge aliases
   references: "cites",
   cited_by: "cites",
+  sourced_from: "cites",
   opposes: "contradicts",
+  conflicts_with: "contradicts",
+  disagrees_with: "contradicts",
   elaborates: "builds_on",
+  refines: "builds_on",
+  deepens: "builds_on",
   illustrates: "exemplifies",
   demonstrates: "exemplifies",
+  example_of: "exemplifies",
+  instance_of: "exemplifies",
   tagged_with: "categorized_under",
   classified_as: "categorized_under",
+  belongs_to: "categorized_under",
+  part_of: "categorized_under",
   written_by: "authored_by",
   created_by: "authored_by",
   // Note: "implemented_by" is intentionally NOT aliased to "implements" —
@@ -353,6 +371,15 @@ const DomainMetaSchema = z.object({
   entryType: z.enum(["http", "cli", "event", "cron", "manual"]).optional(),
 }).passthrough();
 
+const KnowledgeMetaSchema = z.object({
+  format: z.enum(["obsidian", "logseq", "dendron", "foam", "karpathy", "zettelkasten", "plain"]).optional(),
+  wikilinks: z.array(z.string()).optional(),
+  backlinks: z.array(z.string()).optional(),
+  frontmatter: z.record(z.string(), z.unknown()).optional(),
+  sourceUrl: z.string().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+}).passthrough();
+
 export const GraphNodeSchema = z.object({
   id: z.string(),
   type: z.enum([
@@ -370,6 +397,7 @@ export const GraphNodeSchema = z.object({
   complexity: z.enum(["simple", "moderate", "complex"]),
   languageNotes: z.string().optional(),
   domainMeta: DomainMetaSchema.optional(),
+  knowledgeMeta: KnowledgeMetaSchema.optional(),
 }).passthrough();
 
 export const GraphEdgeSchema = z.object({
