@@ -13,6 +13,7 @@ export default function ProjectOverview() {
   }
 
   const { project, nodes, edges, layers } = graph;
+  const isKnowledge = graph.kind === "knowledge";
   const hasTour = graph.tour.length > 0;
 
   // Count node types
@@ -45,7 +46,23 @@ export default function ProjectOverview() {
 
   const avgConnections = nodes.length > 0 ? (edges.length * 2 / nodes.length).toFixed(1) : "0";
 
-  // Category breakdowns
+  // Detect knowledge format from first node with knowledgeMeta
+  const knowledgeFormat = isKnowledge
+    ? nodes.find((n) => n.knowledgeMeta?.format)?.knowledgeMeta?.format ?? "plain"
+    : undefined;
+
+  // Knowledge-specific stats
+  const knowledgeStats = isKnowledge
+    ? [
+        { label: "Articles", color: "var(--color-node-article, var(--color-accent))", count: typeCounts["article"] ?? 0 },
+        { label: "Entities", color: "var(--color-node-entity, #7eb8da)", count: typeCounts["entity"] ?? 0 },
+        { label: "Topics", color: "var(--color-node-topic, #a78bfa)", count: typeCounts["topic"] ?? 0 },
+        { label: "Claims", color: "var(--color-node-claim, #f0abfc)", count: typeCounts["claim"] ?? 0 },
+        { label: "Sources", color: "var(--color-node-source, #86efac)", count: typeCounts["source"] ?? 0 },
+      ]
+    : [];
+
+  // Category breakdowns (codebase mode)
   const categoryBreakdown = [
     { label: "Code", color: "var(--color-node-file)", count: (typeCounts["file"] ?? 0) + (typeCounts["function"] ?? 0) + (typeCounts["class"] ?? 0) + (typeCounts["module"] ?? 0) + (typeCounts["concept"] ?? 0) },
     { label: "Config", color: "var(--color-node-config)", count: typeCounts["config"] ?? 0 },
@@ -61,6 +78,15 @@ export default function ProjectOverview() {
       {/* Project name */}
       <h2 className="font-serif text-2xl text-text-primary mb-1">{project.name}</h2>
       <p className="text-sm text-text-secondary leading-relaxed mb-6">{project.description}</p>
+
+      {/* Knowledge format badge */}
+      {isKnowledge && knowledgeFormat && (
+        <div className="mb-5">
+          <span className="text-[11px] glass text-accent px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold">
+            {knowledgeFormat} format
+          </span>
+        </div>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 mb-6">
@@ -82,8 +108,27 @@ export default function ProjectOverview() {
         </div>
       </div>
 
-      {/* File Types breakdown */}
-      {hasNonCodeNodes && (
+      {/* Knowledge-specific stats */}
+      {isKnowledge && (
+        <div className="mb-5">
+          <h3 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-2">Knowledge Breakdown</h3>
+          <div className="space-y-1.5">
+            {knowledgeStats.filter((s) => s.count > 0).map((stat) => (
+              <div key={stat.label} className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: stat.color }}
+                />
+                <span className="text-xs text-text-secondary flex-1">{stat.label}</span>
+                <span className="text-xs font-mono text-text-muted">{stat.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* File Types breakdown (codebase only) */}
+      {!isKnowledge && hasNonCodeNodes && (
         <div className="mb-5">
           <h3 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-2">File Types</h3>
           <div className="space-y-1.5">
@@ -101,8 +146,8 @@ export default function ProjectOverview() {
         </div>
       )}
 
-      {/* Languages */}
-      {project.languages.length > 0 && (
+      {/* Languages (codebase only) */}
+      {!isKnowledge && project.languages.length > 0 && (
         <div className="mb-5">
           <h3 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-2">Languages</h3>
           <div className="flex flex-wrap gap-1.5">
@@ -115,8 +160,8 @@ export default function ProjectOverview() {
         </div>
       )}
 
-      {/* Frameworks */}
-      {project.frameworks.length > 0 && (
+      {/* Frameworks (codebase only) */}
+      {!isKnowledge && project.frameworks.length > 0 && (
         <div className="mb-5">
           <h3 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-2">Frameworks</h3>
           <div className="flex flex-wrap gap-1.5">

@@ -50,6 +50,15 @@ import type { NodeCategory } from "../store";
  * Maps each NodeType to a filter category. Must be kept in sync with core NodeType.
  * Unknown types default to "code" with a development warning.
  */
+const KNOWLEDGE_EDGE_STYLES: Record<string, React.CSSProperties> = {
+  cites: { strokeDasharray: "6 3", strokeWidth: 1.5 },
+  contradicts: { stroke: "#c97070", strokeWidth: 2 },
+  builds_on: { stroke: "var(--color-accent)", strokeWidth: 2 },
+  categorized_under: { stroke: "rgba(150,150,150,0.5)", strokeWidth: 1 },
+  authored_by: { strokeDasharray: "3 3", stroke: "var(--color-node-entity)", strokeWidth: 1.5 },
+  exemplifies: { strokeDasharray: "3 3", stroke: "var(--color-node-claim)", strokeWidth: 1.5 },
+};
+
 const NODE_TYPE_TO_CATEGORY: Record<NodeType, NodeCategory> = {
   file: "code", function: "code", class: "code", module: "code", concept: "code",
   config: "config",
@@ -124,6 +133,7 @@ function SelectedNodeFitView() {
 
 function useOverviewGraph() {
   const graph = useDashboardStore((s) => s.graph);
+  const graphKind = useDashboardStore((s) => s.graph?.kind);
   const searchResults = useDashboardStore((s) => s.searchResults);
   const drillIntoLayer = useDashboardStore((s) => s.drillIntoLayer);
 
@@ -199,9 +209,10 @@ function useOverviewGraph() {
     for (const n of clusterNodes) {
       dims.set(n.id, { width: LAYER_CLUSTER_WIDTH, height: LAYER_CLUSTER_HEIGHT });
     }
-    const laid = applyDagreLayout(clusterNodes as unknown as Node[], flowEdges, "TB", dims);
+    const direction = graphKind === "knowledge" ? "TB" : "TB";
+    const laid = applyDagreLayout(clusterNodes as unknown as Node[], flowEdges, direction, dims);
     return { nodes: laid.nodes, edges: laid.edges };
-  }, [graph, searchResults, drillIntoLayer]);
+  }, [graph, graphKind, searchResults, drillIntoLayer]);
 }
 
 // ── Layer detail level: topology (dagre) + visual overlay ───────────────
@@ -213,6 +224,7 @@ function useOverviewGraph() {
  */
 function useLayerDetailTopology() {
   const graph = useDashboardStore((s) => s.graph);
+  const graphKind = useDashboardStore((s) => s.graph?.kind);
   const activeLayerId = useDashboardStore((s) => s.activeLayerId);
   const selectNode = useDashboardStore((s) => s.selectNode);
   const persona = useDashboardStore((s) => s.persona);
@@ -353,6 +365,14 @@ function useLayerDetailTopology() {
         edgeAnimated = edge.type === "calls";
       }
 
+      // Apply knowledge-specific edge styles
+      if (graphKind === "knowledge" && !diffMode) {
+        const knowledgeStyle = KNOWLEDGE_EDGE_STYLES[edge.type];
+        if (knowledgeStyle) {
+          edgeStyle = { ...edgeStyle, ...knowledgeStyle };
+        }
+      }
+
       return {
         id: `e-${i}`,
         source: edge.source,
@@ -412,9 +432,10 @@ function useLayerDetailTopology() {
       dims.set(n.id, { width: PORTAL_NODE_WIDTH, height: PORTAL_NODE_HEIGHT });
     }
 
-    const laid = applyDagreLayout(allFlowNodes, allFlowEdges, "TB", dims);
+    const direction = graphKind === "knowledge" ? "TB" : "TB";
+    const laid = applyDagreLayout(allFlowNodes, allFlowEdges, direction, dims);
     return { nodes: laid.nodes, edges: laid.edges, portalNodes, portalEdges, filteredEdges: filteredGraphEdges };
-  }, [graph, activeLayerId, persona, handleNodeSelect, diffMode, changedNodeIds, affectedNodeIds, focusNodeId, nodeTypeFilters, drillIntoLayer]);
+  }, [graph, graphKind, activeLayerId, persona, handleNodeSelect, diffMode, changedNodeIds, affectedNodeIds, focusNodeId, nodeTypeFilters, drillIntoLayer]);
 }
 
 /**
