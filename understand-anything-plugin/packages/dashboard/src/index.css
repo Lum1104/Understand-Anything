@@ -36,6 +36,13 @@
   --color-node-schema: #fcd34d;
   --color-node-resource: #a5b4fc;
 
+  /* Knowledge node colors */
+  --color-node-article: #d4a574;
+  --color-node-entity: #7ba4c9;
+  --color-node-topic: #c9b06c;
+  --color-node-claim: #6fb07a;
+  --color-node-source: #8a8a8a;
+
   /* Diff */
   --color-diff-changed: #e05252;
   --color-diff-affected: #d4a030;

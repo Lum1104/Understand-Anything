@@ -20,11 +20,11 @@ const typeBadgeColors: Record<NodeType, string> = {
   domain: "text-node-concept border border-node-concept/30 bg-node-concept/10",
   flow: "text-node-pipeline border border-node-pipeline/30 bg-node-pipeline/10",
   step: "text-node-function border border-node-function/30 bg-node-function/10",
-  article: "text-node-document border border-node-document/30 bg-node-document/10",
-  entity: "text-node-concept border border-node-concept/30 bg-node-concept/10",
-  topic: "text-node-module border border-node-module/30 bg-node-module/10",
-  claim: "text-node-endpoint border border-node-endpoint/30 bg-node-endpoint/10",
-  source: "text-node-config border border-node-config/30 bg-node-config/10",
+  article: "text-node-article border border-node-article/30 bg-node-article/10",
+  entity: "text-node-entity border border-node-entity/30 bg-node-entity/10",
+  topic: "text-node-topic border border-node-topic/30 bg-node-topic/10",
+  claim: "text-node-claim border border-node-claim/30 bg-node-claim/10",
+  source: "text-node-source border border-node-source/30 bg-node-source/10",
 };
 
 const complexityBadgeColors: Record<string, string> = {
@@ -72,7 +72,7 @@ const EDGE_LABELS: Record<EdgeType, { forward: string; backward: string }> = {
   builds_on: { forward: "builds on", backward: "built upon by" },
   exemplifies: { forward: "exemplifies", backward: "exemplified by" },
   categorized_under: { forward: "categorized under", backward: "categorizes" },
-  authored_by: { forward: "authored by", backward: "author of" },
+  authored_by: { forward: "authored by", backward: "authored" },
 };
 
 /**
