@@ -175,4 +175,27 @@ describe("knowledge graph schema validation", () => {
     expect(node?.knowledgeMeta?.format).toBe("obsidian");
     expect(node?.knowledgeMeta?.confidence).toBe(0.85);
   });
+
+  it("rejects out-of-range confidence values", () => {
+    const graph = {
+      ...minimalKnowledgeGraph,
+      nodes: [
+        {
+          id: "article:bad-conf",
+          type: "article" as const,
+          name: "Bad confidence",
+          summary: "Out of range",
+          tags: [],
+          complexity: "simple" as const,
+          knowledgeMeta: { confidence: 1.5 },
+        },
+      ],
+      edges: [],
+      layers: [],
+    };
+    const result = validateGraph(graph);
+    // Node should be dropped or have an issue due to invalid confidence
+    const issues = result.issues.filter((i) => i.message.includes("bad-conf") || i.message.includes("confidence"));
+    expect(issues.length).toBeGreaterThan(0);
+  });
 });
