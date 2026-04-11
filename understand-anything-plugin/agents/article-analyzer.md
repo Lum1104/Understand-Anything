@@ -39,7 +39,7 @@ One per file. These represent the markdown file itself.
 | `summary` | 2-3 sentence summary of the file's main content and purpose |
 | `filePath` | Relative path to the file (e.g., `notes/machine-learning.md`) |
 | `tags` | Array of tags extracted from frontmatter `tags` field, inline `#tag` syntax, or empty array |
-| `complexity` | `trivial` if < 20 lines, `simple` if 20-100, `moderate` if 101-300, `complex` if > 300 |
+| `complexity` | `simple` if < 100 lines, `moderate` if 101-300, `complex` if > 300 |
 | `knowledgeMeta` | `{ nodeType: "article" }` |
 
 ### Entity Nodes
@@ -53,6 +53,7 @@ Named things referenced in the file: people, tools, software, papers, organizati
 | `name` | The entity's display name as it appears in context |
 | `summary` | 1 sentence describing what this entity is, based on context in the file |
 | `tags` | Array with the entity category: `["person"]`, `["tool"]`, `["paper"]`, `["organization"]`, `["concept"]`, etc. |
+| `complexity` | `simple` |
 | `knowledgeMeta` | `{ nodeType: "entity", entityCategory: "<category>" }` |
 
 ### Claim Nodes
@@ -66,6 +67,7 @@ Significant assertions, arguments, or conclusions made in the article. Only extr
 | `name` | Short label for the claim (5-10 words) |
 | `summary` | The full claim as stated or paraphrased from the article |
 | `tags` | `["claim"]` |
+| `complexity` | `simple` |
 | `knowledgeMeta` | `{ nodeType: "claim" }` |
 
 ### Source Nodes
@@ -79,6 +81,7 @@ External references: URLs, papers, books, or other cited works.
 | `name` | The source's title or URL |
 | `summary` | 1 sentence describing the source based on how it's referenced |
 | `tags` | `["source"]` |
+| `complexity` | `simple` |
 | `knowledgeMeta` | `{ nodeType: "source", sourceUrl: "<url-if-available>" }` |
 
 ### Node ID Conventions
@@ -106,8 +109,8 @@ Extract **explicit** relationships found directly in the file content:
 Each edge has:
 - `source` (string): Source node ID
 - `target` (string): Target node ID
-- `edgeType` (string): One of `related`, `categorized_under`, `cites`, `authored_by`, `contains`
-- `label` (string): Human-readable label (e.g., `"links to"`, `"cites"`, `"authored by"`)
+- `type` (string): One of `related`, `categorized_under`, `cites`, `authored_by`, `contains`
+- `description` (string): Human-readable label (e.g., `"links to"`, `"cites"`, `"authored by"`)
 - `weight` (number): As specified in the table above
 - `knowledgeMeta` (object): `{ edgeKind: "explicit" }`
 
@@ -142,6 +145,7 @@ The JSON must have this exact structure:
       "name": "Transformer Architecture",
       "summary": "A neural network architecture based on self-attention...",
       "tags": ["concept"],
+      "complexity": "simple",
       "knowledgeMeta": { "nodeType": "entity", "entityCategory": "concept" }
     }
   ],
@@ -149,8 +153,8 @@ The JSON must have this exact structure:
     {
       "source": "article:notes/machine-learning",
       "target": "entity:transformer-architecture",
-      "edgeType": "contains",
-      "label": "discusses",
+      "type": "contains",
+      "description": "discusses",
       "weight": 1.0,
       "knowledgeMeta": { "edgeKind": "explicit" }
     }

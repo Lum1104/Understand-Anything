@@ -33,7 +33,7 @@ Merge all nodes from all batch files into a single list. Then deduplicate:
 - **Source nodes**: Same merging logic as entities
 - **Article and claim nodes**: These should already be unique (one per file/claim). If duplicates exist, keep the first occurrence.
 
-Also merge all edges from all batch files into a single list. Remove exact duplicate edges (same source, target, and edgeType).
+Also merge all edges from all batch files into a single list. Remove exact duplicate edges (same source, target, and type).
 
 ## Step 2 -- Implicit Edge Discovery
 
@@ -52,8 +52,8 @@ Discover these types of implicit edges:
 For each implicit edge:
 - `source` (string): Source node ID
 - `target` (string): Target node ID
-- `edgeType` (string): One of the types above
-- `label` (string): Human-readable description of the relationship
+- `type` (string): One of the types above
+- `description` (string): Human-readable description of the relationship
 - `weight` (number): Within the range specified above
 - `knowledgeMeta` (object): `{ edgeKind: "implicit", confidence: <0-1> }`
 
@@ -62,7 +62,7 @@ For each implicit edge:
 - 0.6-0.8: Moderate evidence (shared tags, similar topics, related domains)
 - 0.4-0.6: Weak evidence (loose thematic connection, tangential overlap)
 
-**Only add edges with confidence > 0.4.** Do NOT duplicate edges that already exist from the article-analyzer batches (same source, target, and edgeType).
+**Only add edges with confidence > 0.4.** Do NOT duplicate edges that already exist from the article-analyzer batches (same source, target, and type).
 
 ## Step 3 -- Topic Cluster Building
 
@@ -75,9 +75,10 @@ Identify thematic clusters of 3 or more articles that share a common theme. For 
 | `name` | A descriptive name for the topic cluster |
 | `summary` | 1-2 sentence description of what this topic cluster covers |
 | `tags` | `["topic"]` |
+| `complexity` | `simple` |
 | `knowledgeMeta` | `{ nodeType: "topic" }` |
 
-For each article in a topic cluster, add a `categorized_under` edge from the article to the topic node (if one does not already exist), with weight 0.7 and `knowledgeMeta: { edgeKind: "implicit", confidence: 0.7 }`.
+For each article in a topic cluster, add a `categorized_under` edge (using `type: "categorized_under"`) from the article to the topic node (if one does not already exist), with weight 0.7 and `knowledgeMeta: { edgeKind: "implicit", confidence: 0.7 }`.
 
 An article may belong to multiple topic clusters if it genuinely spans multiple themes.
 
@@ -89,6 +90,7 @@ Create one layer per topic cluster:
 {
   "id": "layer-<topic-name>",
   "name": "<Topic Name>",
+  "description": "<1-2 sentence description of this layer's theme>",
   "nodeIds": ["article:...", "entity:...", "claim:..."]
 }
 ```
@@ -105,9 +107,10 @@ Each tour step:
 
 ```json
 {
-  "nodeId": "article:some-article",
+  "order": 1,
   "title": "Step title",
-  "description": "2-3 sentences explaining why this article matters and what to look for."
+  "description": "2-3 sentences explaining why this article matters and what to look for.",
+  "nodeIds": ["article:some-article"]
 }
 ```
 
@@ -133,6 +136,7 @@ The JSON must have this exact structure:
       "name": "Machine Learning",
       "summary": "Articles exploring ML concepts, architectures, and applications.",
       "tags": ["topic"],
+      "complexity": "simple",
       "knowledgeMeta": { "nodeType": "topic" }
     }
   ],
@@ -140,8 +144,8 @@ The JSON must have this exact structure:
     {
       "source": "article:notes/transformers",
       "target": "article:notes/attention",
-      "edgeType": "builds_on",
-      "label": "extends attention mechanism concepts",
+      "type": "builds_on",
+      "description": "extends attention mechanism concepts",
       "weight": 0.7,
       "knowledgeMeta": { "edgeKind": "implicit", "confidence": 0.75 }
     }
@@ -150,19 +154,22 @@ The JSON must have this exact structure:
     {
       "id": "layer-machine-learning",
       "name": "Machine Learning",
+      "description": "Articles exploring ML concepts, architectures, and applications.",
       "nodeIds": ["topic:machine-learning", "article:notes/ml", "entity:transformer-architecture"]
     },
     {
       "id": "layer-uncategorized",
       "name": "Uncategorized",
+      "description": "Articles not assigned to any specific topic cluster.",
       "nodeIds": ["article:misc/random-thoughts"]
     }
   ],
   "tour": [
     {
-      "nodeId": "article:notes/intro-to-ml",
+      "order": 1,
       "title": "Starting with the Basics",
-      "description": "This article provides a foundational overview of machine learning concepts that many other notes build upon."
+      "description": "This article provides a foundational overview of machine learning concepts that many other notes build upon.",
+      "nodeIds": ["article:notes/intro-to-ml"]
     }
   ]
 }
