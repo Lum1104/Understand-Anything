@@ -18,11 +18,14 @@ export default function KnowledgeInfo() {
   const navigateToHistoryIndex = useDashboardStore((s) => s.navigateToHistoryIndex);
   const setFocusNode = useDashboardStore((s) => s.setFocusNode);
   const focusNodeId = useDashboardStore((s) => s.focusNodeId);
+  const viewMode = useDashboardStore((s) => s.viewMode);
+  const domainGraph = useDashboardStore((s) => s.domainGraph);
 
-  const node = graph?.nodes.find((n) => n.id === selectedNodeId) ?? null;
+  const activeGraph = viewMode === "domain" && domainGraph ? domainGraph : graph;
+  const node = activeGraph?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
   const historyNodes = nodeHistory.map((id) => {
-    const n = graph?.nodes.find((gn) => gn.id === id);
+    const n = activeGraph?.nodes.find((gn) => gn.id === id);
     return { id, name: n?.name ?? id };
   });
 
@@ -34,13 +37,13 @@ export default function KnowledgeInfo() {
     );
   }
 
-  const allEdges = graph?.edges ?? [];
+  const allEdges = activeGraph?.edges ?? [];
 
   // Backlinks: edges where this node is the target
   const backlinks = allEdges
     .filter((e) => e.target === node.id)
     .map((e) => {
-      const sourceNode = graph?.nodes.find((n) => n.id === e.source);
+      const sourceNode = activeGraph?.nodes.find((n) => n.id === e.source);
       return { id: e.source, name: sourceNode?.name ?? e.source, type: e.type, node: sourceNode };
     });
 
@@ -48,7 +51,7 @@ export default function KnowledgeInfo() {
   const outgoing = allEdges
     .filter((e) => e.source === node.id)
     .map((e) => {
-      const targetNode = graph?.nodes.find((n) => n.id === e.target);
+      const targetNode = activeGraph?.nodes.find((n) => n.id === e.target);
       return { id: e.target, name: targetNode?.name ?? e.target, type: e.type, node: targetNode };
     });
 
@@ -289,7 +292,7 @@ export default function KnowledgeInfo() {
           .filter((e) => (e.target === node.id || e.source === node.id) && e.type !== "related")
           .map((e) => {
             const otherId = e.source === node.id ? e.target : e.source;
-            return graph?.nodes.find((n) => n.id === otherId);
+            return activeGraph?.nodes.find((n) => n.id === otherId);
           })
           .filter((n): n is GraphNode => n !== undefined && n.type === "article");
         if (referencingArticles.length === 0) return null;
@@ -322,7 +325,7 @@ export default function KnowledgeInfo() {
           )
           .map((e) => {
             const otherId = e.source === node.id ? e.target : e.source;
-            return graph?.nodes.find((n) => n.id === otherId);
+            return activeGraph?.nodes.find((n) => n.id === otherId);
           })
           .filter((n): n is GraphNode => n !== undefined && n.type === "entity");
         if (relatedEntities.length === 0) return null;
@@ -350,8 +353,8 @@ export default function KnowledgeInfo() {
       {node.type === "topic" && (() => {
         const categorizedArticles = allEdges
           .filter((e) => e.type === "categorized_under" && e.target === node.id)
-          .map((e) => graph?.nodes.find((n) => n.id === e.source))
-          .filter((n): n is GraphNode => n !== undefined);
+          .map((e) => activeGraph?.nodes.find((n) => n.id === e.source))
+          .filter((n): n is GraphNode => n !== undefined && n.type === "article");
         if (categorizedArticles.length === 0) return null;
         return (
           <div className="mb-4">
@@ -382,7 +385,7 @@ export default function KnowledgeInfo() {
           )
           .map((e) => {
             const otherId = e.source === node.id ? e.target : e.source;
-            return graph?.nodes.find((n) => n.id === otherId);
+            return activeGraph?.nodes.find((n) => n.id === otherId);
           })
           .filter((n): n is GraphNode => n !== undefined);
         if (contradictions.length === 0) return null;
@@ -415,7 +418,7 @@ export default function KnowledgeInfo() {
           )
           .map((e) => {
             const otherId = e.source === node.id ? e.target : e.source;
-            return graph?.nodes.find((n) => n.id === otherId);
+            return activeGraph?.nodes.find((n) => n.id === otherId);
           })
           .filter((n): n is GraphNode => n !== undefined && n.type === "article");
         if (supporting.length === 0) return null;
@@ -443,7 +446,7 @@ export default function KnowledgeInfo() {
       {node.type === "source" && (() => {
         const citingArticles = allEdges
           .filter((e) => e.type === "cites" && e.target === node.id)
-          .map((e) => graph?.nodes.find((n) => n.id === e.source))
+          .map((e) => activeGraph?.nodes.find((n) => n.id === e.source))
           .filter((n): n is GraphNode => n !== undefined);
         if (citingArticles.length === 0) return null;
         return (

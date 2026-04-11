@@ -224,7 +224,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
       selectedNodeId: null,
       focusNodeId: null,
       nodeHistory: [],
-      viewMode: keepDomainView ? "domain" as const : "structural" as const,
+      viewMode: keepDomainView ? "domain" as const : graph.kind === "knowledge" ? "knowledge" as const : "structural" as const,
       activeDomainId: keepDomainView ? activeDomainId : null,
     });
   },
