@@ -267,6 +267,7 @@ function useLayerDetailTopology() {
       "config", "document", "service", "table",
       "endpoint", "pipeline", "schema", "resource",
       "domain", "flow", "step",
+      "article", "entity", "topic", "claim", "source",
       "function", "class",
     ]);
 
@@ -497,7 +498,7 @@ function useLayerDetailGraph() {
     return topo.edges.map((edge) => {
       const isSelectedEdge = edge.source === selectedNodeId || edge.target === selectedNodeId;
       // Don't restyle diff-impacted or portal edges
-      if ((edge.style as Record<string, unknown>)?.strokeDasharray) return edge;
+      if (edge.target.startsWith("portal:")) return edge;
 
       if (isSelectedEdge) {
         return { ...edge, animated: true, style: { stroke: "rgba(212,165,116,0.8)", strokeWidth: 2.5 }, labelStyle: { fill: "#d4a574", fontSize: 11, fontWeight: 600 } };
