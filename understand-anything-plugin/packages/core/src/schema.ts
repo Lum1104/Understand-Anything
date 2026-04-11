@@ -65,7 +65,7 @@ export const NODE_TYPE_ALIASES: Record<string, string> = {
   place: "entity",
   thing: "entity",
   tool: "entity",
-  paper: "entity",
+  paper: "source",
   organization: "entity",
   org: "entity",
   tag: "topic",
@@ -115,8 +115,9 @@ export const EDGE_TYPE_ALIASES: Record<string, string> = {
   interacts_with: "cross_domain",
   // Knowledge aliases
   references: "cites",
-  cited_by: "cites",
-  sourced_from: "cites",
+  // Note: "cited_by" and "sourced_from" are intentionally NOT aliased to "cites" —
+  // they invert edge direction (A cited_by B means B cites A, not A cites B).
+  // The LLM should use "cites" with correct source/target instead.
   opposes: "contradicts",
   conflicts_with: "contradicts",
   disagrees_with: "contradicts",
@@ -666,9 +667,24 @@ export function validateGraph(data: unknown): ValidationResult {
     }
   }
 
+  let validatedKind: "codebase" | "knowledge" | undefined;
+  if (typeof fixed.kind === "string") {
+    if (fixed.kind === "codebase" || fixed.kind === "knowledge") {
+      validatedKind = fixed.kind;
+    } else {
+      validatedKind = undefined;
+      issues.push({
+        level: "auto-corrected",
+        category: "invalid-enum",
+        message: `kind "${fixed.kind}" is not valid — removed (must be "codebase" or "knowledge")`,
+        path: "kind",
+      });
+    }
+  }
+
   const graph = {
     version: typeof fixed.version === "string" ? fixed.version : "1.0.0",
-    kind: fixed.kind as "codebase" | "knowledge" | undefined,
+    kind: validatedKind,
     project: projectResult.data,
     nodes: validNodes,
     edges: validEdges,
