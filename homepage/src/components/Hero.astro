@@ -7,17 +7,33 @@ const githubUrl = 'https://github.com/Lum1104/Understand-Anything';
     <img src="/Understand-Anything/images/hero.jpg" alt="" class="hero-bg-img" loading="eager" />
     <div class="hero-overlay"></div>
   </div>
+
   <div class="hero-content">
-    <h1 class="hero-title">Understand Any Codebase</h1>
-    <p class="hero-sub">
-      Turn 200,000 lines of code into an interactive knowledge graph you can
-      explore, search, and learn from — powered by multi-agent AI analysis.
+    <span class="hero-badge anim anim-1">AI-Powered Code Understanding</span>
+
+    <h1 class="hero-title anim anim-2">
+      <span style="display:inline-block;background:linear-gradient(135deg,#c9867a,#b8865c,#d4a574);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Understand</span>&nbsp;Anything
+    </h1>
+
+    <p class="hero-tagline anim anim-3">
+      Other tools show you a <span class="hero-problem">hairball</span>.
+      We <span class="hero-value">teach</span> you the codebase.
     </p>
-    <div class="hero-actions">
+
+    <div class="hero-pillars anim anim-4">
+      <span class="pillar">Structure & Dependencies</span>
+      <span class="pillar-dot">&middot;</span>
+      <span class="pillar">Business Logic</span>
+      <span class="pillar-dot">&middot;</span>
+      <span class="pillar">Guided Tours</span>
+    </div>
+
+    <div class="hero-actions anim anim-5">
       <a href="#install" class="hero-cta">Get Started</a>
       <a href="/Understand-Anything/demo/" class="hero-demo">Live Demo &rarr;</a>
       <a href={githubUrl} target="_blank" rel="noopener noreferrer" class="hero-secondary">
-        View on GitHub &rarr;
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align:-2px;margin-right:4px;"><path d="M12 .587l3.668 7.568L24 9.306l-6 5.986 1.416 8.421L12 19.897l-7.416 3.816L6 15.292 0 9.306l8.332-1.151z"/></svg>
+        Star on GitHub
       </a>
     </div>
   </div>
@@ -32,6 +48,7 @@ const githubUrl = 'https://github.com/Lum1104/Understand-Anything';
     justify-content: center;
     text-align: center;
     overflow: hidden;
+    padding: 2rem;
   }
 
   .hero-bg {
@@ -44,7 +61,7 @@ const githubUrl = 'https://github.com/Lum1104/Understand-Anything';
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.25;
+    opacity: 0.2;
   }
 
   .hero-overlay {
@@ -52,8 +69,8 @@ const githubUrl = 'https://github.com/Lum1104/Understand-Anything';
     inset: 0;
     background: linear-gradient(
       to bottom,
-      rgba(10, 10, 10, 0.3) 0%,
-      rgba(10, 10, 10, 0.7) 60%,
+      rgba(10, 10, 10, 0.4) 0%,
+      rgba(10, 10, 10, 0.75) 55%,
       var(--bg) 100%
     );
   }
@@ -61,84 +78,177 @@ const githubUrl = 'https://github.com/Lum1104/Understand-Anything';
   .hero-content {
     position: relative;
     z-index: 1;
-    max-width: 800px;
-    padding: 2rem;
-    animation: fadeSlideUp 1s ease-out;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
   }
 
+  /* Badge */
+  .hero-badge {
+    display: inline-block;
+    font-family: var(--font-code);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    color: #d4a574;
+    border: 1px solid rgba(212, 165, 116, 0.3);
+    padding: 0.4rem 1.2rem;
+    border-radius: 100px;
+    margin-bottom: 2.5rem;
+  }
+
+  /* Headline */
   .hero-title {
     font-family: var(--font-heading);
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    color: var(--text);
-    line-height: 1.1;
-    margin-bottom: 1.5rem;
-    text-shadow: 0 0 60px var(--accent-glow);
+    font-size: clamp(3.5rem, 9vw, 7rem);
+    color: #e8e2d8;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    margin-bottom: 2rem;
+    white-space: nowrap;
   }
 
-  .hero-sub {
-    font-size: clamp(1rem, 2vw, 1.25rem);
-    color: var(--text-muted);
+  .hero-grad {
+    display: inline-block;
+    background: linear-gradient(135deg, #c9867a, #b8865c, #d4a574);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+  }
+
+  /* Tagline */
+  .hero-tagline {
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    color: #8a8578;
     line-height: 1.7;
-    max-width: 600px;
-    margin: 0 auto 2.5rem;
+    max-width: 900px;
+    white-space: nowrap;
+    margin-bottom: 1.5rem;
   }
 
+  .hero-problem {
+    color: #c9867a;
+    font-style: italic;
+  }
+
+  .hero-value {
+    color: #d4a574;
+    font-weight: 600;
+  }
+
+  /* Pillars */
+  .hero-pillars {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pillar {
+    font-size: 0.9rem;
+    color: #e8e2d8;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .pillar-dot {
+    color: #d4a574;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  /* CTAs */
   .hero-actions {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
+    gap: 1.5rem;
     flex-wrap: wrap;
   }
 
   .hero-cta {
-    background: var(--accent);
-    color: var(--bg);
+    background: #d4a574;
+    color: #0a0a0a;
     padding: 0.85rem 2.5rem;
     border-radius: 8px;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     text-decoration: none;
     transition: box-shadow 0.3s ease, transform 0.2s ease;
   }
 
   .hero-cta:hover {
     text-decoration: none;
-    box-shadow: 0 0 30px var(--accent-glow), 0 0 60px rgba(212, 165, 116, 0.08);
+    box-shadow: 0 0 30px rgba(212, 165, 116, 0.15), 0 0 60px rgba(212, 165, 116, 0.08);
     transform: translateY(-2px);
   }
 
   .hero-demo {
-    border: 1.5px solid var(--accent);
-    color: var(--accent);
+    border: 1.5px solid #d4a574;
+    color: #d4a574;
     padding: 0.85rem 2.5rem;
     border-radius: 8px;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     text-decoration: none;
     transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
   }
 
   .hero-demo:hover {
     background: rgba(212, 165, 116, 0.1);
-    box-shadow: 0 0 20px var(--accent-glow);
+    box-shadow: 0 0 20px rgba(212, 165, 116, 0.15);
     transform: translateY(-2px);
     text-decoration: none;
   }
 
   .hero-secondary {
-    color: var(--text-muted);
-    font-size: 1rem;
+    color: #8a8578;
+    font-size: 0.95rem;
     text-decoration: none;
     transition: color 0.2s;
   }
 
   .hero-secondary:hover {
-    color: var(--accent);
+    color: #d4a574;
     text-decoration: none;
+  }
+
+  /* Staggered entrance */
+  @keyframes heroIn {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .anim {
+    opacity: 0;
+    animation: heroIn 0.8s ease-out forwards;
+  }
+
+  .anim-1 { animation-delay: 0.1s; }
+  .anim-2 { animation-delay: 0.3s; }
+  .anim-3 { animation-delay: 0.55s; }
+  .anim-4 { animation-delay: 0.75s; }
+  .anim-5 { animation-delay: 0.95s; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero-pillars { gap: 0.5rem; }
+    .pillar { font-size: 0.8rem; }
   }
 
   @media (max-width: 480px) {
     .hero-actions { flex-direction: column; gap: 1rem; }
+    .hero-pillars { flex-direction: column; gap: 0.4rem; }
+    .pillar-dot { display: none; }
   }
 </style>

@@ -3,14 +3,23 @@ const structuralVideoUrl = import.meta.env.VITE_STRUCTURAL_VIDEO_URL;
 const domainVideoUrl = import.meta.env.VITE_DOMAIN_VIDEO_URL;
 ---
 
-<section class="showcase">
-  <p class="showcase-label reveal">Explore the structural graph</p>
-  <p class="showcase-desc reveal">Navigate your codebase as an interactive knowledge graph — click, search, and explore every file, function, and class.</p>
+<!-- Structural: table stakes -->
+<section class="showcase showcase--structural">
+  <span class="showcase-label reveal">Structural View</span>
+  <h2 class="showcase-heading reveal">
+    Yes, we do <span style="display:inline;background:linear-gradient(135deg,#c9867a,#b8865c,#d4a574);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">structure</span> too
+  </h2>
+  <p class="showcase-desc reveal">
+    Explore every file, function, and dependency as an interactive graph.
+    Click to drill down, search to find anything, filter by type or complexity.
+    But that's just the map &mdash; not the story.
+  </p>
   <div class="showcase-frame reveal reveal-delay-1">
     <div class="showcase-titlebar">
       <span class="dot red"></span>
       <span class="dot yellow"></span>
       <span class="dot green"></span>
+      <span class="showcase-titlebar-text">Structural Graph</span>
     </div>
     {structuralVideoUrl ? (
       <video
@@ -19,25 +28,43 @@ const domainVideoUrl = import.meta.env.VITE_DOMAIN_VIDEO_URL;
         loop
         muted
         playsinline
-        class="showcase-img"
+        class="showcase-media"
       />
     ) : (
       <img
         src="/Understand-Anything/images/overview-structural.gif"
         alt="Structural graph — explore files, functions, classes and their relationships"
-        class="showcase-img"
+        class="showcase-media"
         loading="lazy"
       />
     )}
   </div>
+  <div class="showcase-features reveal reveal-delay-2">
+    <span class="showcase-pill">Hierarchical drill-down</span>
+    <span class="showcase-pill">Fuzzy search</span>
+    <span class="showcase-pill">Filter by type</span>
+    <span class="showcase-pill">26+ file types</span>
+  </div>
+</section>
 
-  <p class="showcase-label reveal" style="margin-top: 4rem;">Understand business logic</p>
-  <p class="showcase-desc reveal">Switch to the domain view and see how your code maps to real business processes.</p>
-  <div class="showcase-frame reveal reveal-delay-1">
+<!-- Business Knowledge: the star -->
+<section class="showcase showcase--domain">
+  <span class="showcase-label showcase-label--accent reveal">Business Knowledge Mode</span>
+  <h2 class="showcase-heading reveal">
+    Now see what the code is <span style="display:inline;background:linear-gradient(135deg,#b8865c,#d4a574);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">for</span>
+  </h2>
+  <p class="showcase-desc showcase-desc--wide reveal">
+    This is what makes us different. Switch to business knowledge mode and watch
+    your code transform into something readable &mdash; authentication flows,
+    payment pipelines, user lifecycles. Not files and functions.
+    <strong>Domains, processes, and the logic that drives your product.</strong>
+  </p>
+  <div class="showcase-frame showcase-frame--featured reveal reveal-delay-1">
     <div class="showcase-titlebar">
       <span class="dot red"></span>
       <span class="dot yellow"></span>
       <span class="dot green"></span>
+      <span class="showcase-titlebar-text">Business Knowledge Graph</span>
     </div>
     {domainVideoUrl ? (
       <video
@@ -46,50 +73,96 @@ const domainVideoUrl = import.meta.env.VITE_DOMAIN_VIDEO_URL;
         loop
         muted
         playsinline
-        class="showcase-img"
+        class="showcase-media"
       />
     ) : (
       <img
         src="/Understand-Anything/images/overview-domain.gif"
         alt="Domain graph — business domains, flows, and process steps"
-        class="showcase-img"
+        class="showcase-media"
         loading="lazy"
       />
     )}
+  </div>
+  <div class="showcase-features reveal reveal-delay-2">
+    <span class="showcase-pill showcase-pill--accent">Domain mapping</span>
+    <span class="showcase-pill showcase-pill--accent">Business flows</span>
+    <span class="showcase-pill showcase-pill--accent">Process steps</span>
+    <span class="showcase-pill showcase-pill--accent">AI-generated tours</span>
   </div>
 </section>
 
 <style>
   .showcase {
-    padding: 4rem 2rem 6rem;
+    padding: 6rem 2rem 4rem;
     max-width: 1100px;
     margin: 0 auto;
     text-align: center;
   }
 
+  .showcase--domain {
+    padding: 8rem 2rem 6rem;
+  }
+
+  /* Section label */
   .showcase-label {
+    display: inline-block;
+    font-family: var(--font-code);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 0.3rem 1rem;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+  }
+
+  .showcase-label--accent {
+    color: #d4a574;
+    border-color: rgba(212, 165, 116, 0.3);
+  }
+
+  /* Heading */
+  .showcase-heading {
     font-family: var(--font-heading);
-    font-size: clamp(1.25rem, 3vw, 1.75rem);
-    color: var(--text-muted);
-    margin-bottom: 2.5rem;
+    font-size: clamp(1.75rem, 4.5vw, 3rem);
+    color: var(--text);
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
   }
 
+  /* Description */
   .showcase-desc {
-    font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+    font-size: clamp(0.95rem, 1.5vw, 1.1rem);
     color: var(--text-muted);
-    max-width: 700px;
-    margin: 0 auto 2rem;
-    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+    line-height: 1.8;
   }
 
+  .showcase-desc--wide {
+    max-width: 700px;
+  }
+
+  .showcase-desc strong {
+    color: var(--text);
+  }
+
+  /* macOS frame */
   .showcase-frame {
     border-radius: 12px;
     overflow: hidden;
     background: var(--surface);
     border: 1px solid var(--border);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+  }
+
+  .showcase-frame--featured {
+    border-color: rgba(212, 165, 116, 0.2);
     box-shadow:
-      0 0 40px var(--accent-glow),
-      0 25px 50px rgba(0, 0, 0, 0.5);
+      0 0 60px rgba(212, 165, 116, 0.1),
+      0 30px 60px rgba(0, 0, 0, 0.5);
   }
 
   .showcase-titlebar {
@@ -99,6 +172,15 @@ const domainVideoUrl = import.meta.env.VITE_DOMAIN_VIDEO_URL;
     padding: 10px 14px;
     background: rgba(20, 20, 20, 0.8);
     border-bottom: 1px solid var(--border);
+  }
+
+  .showcase-titlebar-text {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-code);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-right: 30px; /* offset for dots */
   }
 
   .dot {
@@ -111,13 +193,43 @@ const domainVideoUrl = import.meta.env.VITE_DOMAIN_VIDEO_URL;
   .dot.yellow { background: #ffbd2e; }
   .dot.green { background: #28c840; }
 
-  .showcase-img {
+  .showcase-media {
     width: 100%;
     height: auto;
     display: block;
   }
 
+  /* Feature pills below frame */
+  .showcase-features {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .showcase-pill {
+    font-family: var(--font-code);
+    font-size: 0.8rem;
+    color: #8a8578;
+    padding: 0.4rem 1rem;
+    border: 1px solid rgba(138, 133, 120, 0.25);
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .showcase-pill--accent {
+    color: #d4a574;
+    border-color: rgba(212, 165, 116, 0.3);
+    background: rgba(212, 165, 116, 0.06);
+  }
+
+  /* Responsive */
   @media (max-width: 768px) {
-    .showcase { padding: 2rem 1rem 4rem; }
+    .showcase { padding: 4rem 1rem 2rem; }
+    .showcase--domain { padding: 4rem 1rem 4rem; }
+    .showcase-features { gap: 0.5rem; }
+    .showcase-pill { font-size: 0.7rem; padding: 0.25rem 0.65rem; }
   }
 </style>

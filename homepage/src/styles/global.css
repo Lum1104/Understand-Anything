@@ -41,6 +41,12 @@
   --text: #e8e2d8;
   --text-muted: #8a8578;
 
+  /* Gradient sweep: rose gold → gold */
+  --grad-cool: #c9867a;
+  --grad-mid: #b8865c;
+  --grad-warm: #d4a574;
+  --gradient: linear-gradient(135deg, var(--grad-cool), var(--grad-mid), var(--grad-warm));
+
   --font-heading: 'DM Serif Display', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-code: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
@@ -101,6 +107,14 @@ body::before {
 .reveal-delay-1 { animation-delay: 0.1s; }
 .reveal-delay-2 { animation-delay: 0.25s; }
 .reveal-delay-3 { animation-delay: 0.4s; }
+
+/* Gradient text utility */
+.grad {
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
 a {
   color: var(--accent);

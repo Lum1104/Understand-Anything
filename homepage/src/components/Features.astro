@@ -3,32 +3,32 @@ const features = [
   {
     icon: '◈',
     title: 'Interactive Knowledge Graph',
-    description: 'Visualize files, functions, and dependencies as an explorable graph with hierarchical drill-down and smart layout.',
+    description: 'Explorable graph with hierarchical drill-down, smart layout, and community clustering.',
   },
   {
     icon: '⬡',
     title: 'Beyond Code Analysis',
-    description: 'Analyze your entire project — Dockerfiles, Terraform, SQL, Markdown, and 26+ file types mapped into one unified graph.',
+    description: 'Dockerfiles, Terraform, SQL, Markdown, and 26+ file types in one unified graph.',
   },
   {
     icon: '⊘',
     title: 'Smart Filtering & Search',
-    description: 'Filter by node type, complexity, layer, or edge category. Fuzzy and semantic search to find anything instantly.',
+    description: 'Filter by type, complexity, or layer. Fuzzy and semantic search to find anything.',
   },
   {
     icon: '⎙',
     title: 'Export & Share',
-    description: 'Export your knowledge graph as high-quality PNG, SVG, or filtered JSON — ready for docs, presentations, or further analysis.',
+    description: 'High-quality PNG, SVG, or filtered JSON for docs, presentations, or analysis.',
   },
   {
     icon: '⟿',
     title: 'Dependency Path Finder',
-    description: 'Find the shortest path between any two components. Understand how parts of your system connect at a glance.',
+    description: 'Shortest path between any two components. See how your system connects.',
   },
   {
     icon: '⟐',
     title: 'Guided Tours & Onboarding',
-    description: 'AI-generated walkthroughs that teach the codebase step by step, plus onboarding guides for new team members.',
+    description: 'AI-generated walkthroughs that teach the codebase step by step.',
   },
 ];
 ---
@@ -36,10 +36,12 @@ const features = [
 <section class="features">
   <div class="features-grid">
     {features.map((f, i) => (
-      <div class={`feature-card reveal reveal-delay-${(i % 3) + 1}`}>
-        <span class="feature-icon">{f.icon}</span>
-        <h3 class="feature-title">{f.title}</h3>
-        <p class="feature-desc">{f.description}</p>
+      <div class={`feature-card reveal reveal-delay-${(i % 2) + 1}`}>
+        <span class="feature-icon grad">{f.icon}</span>
+        <div class="feature-body">
+          <h3 class="feature-title">{f.title}</h3>
+          <p class="feature-desc">{f.description}</p>
+        </div>
       </div>
     ))}
   </div>
@@ -47,43 +49,48 @@ const features = [
 
 <style>
   .features {
-    padding: 2rem 2rem 6rem;
-    max-width: 1100px;
+    padding: 4rem 2rem 8rem;
+    max-width: 1000px;
     margin: 0 auto;
   }
 
   .features-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
   }
 
   .feature-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 2rem;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    backdrop-filter: blur(8px);
   }
 
   .feature-card:hover {
-    border-color: rgba(212, 165, 116, 0.3);
-    box-shadow: 0 0 20px var(--accent-glow);
+    border-color: rgba(212, 165, 116, 0.25);
+    box-shadow: 0 0 24px var(--accent-glow);
   }
 
   .feature-icon {
-    display: block;
-    font-size: 1.75rem;
-    color: var(--accent);
-    margin-bottom: 1rem;
+    font-size: 2rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .feature-body {
+    min-width: 0;
   }
 
   .feature-title {
     font-family: var(--font-heading);
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     color: var(--text);
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
   }
 
   .feature-desc {
@@ -93,6 +100,7 @@ const features = [
   }
 
   @media (max-width: 768px) {
+    .features { padding: 2rem 1rem 6rem; }
     .features-grid {
       grid-template-columns: 1fr;
       gap: 1rem;
