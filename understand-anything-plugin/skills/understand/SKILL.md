@@ -1,7 +1,7 @@
 ---
 name: understand
 description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships
-argument-hint: [--full|--auto-update|--no-auto-update|--review]
+argument-hint: [path] [--full|--auto-update|--no-auto-update|--review]
 ---
 
 # /understand
@@ -15,7 +15,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in `.unde
   - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `.understand-anything/config.json`)
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `.understand-anything/config.json`)
   - `--review` — Run full LLM graph-reviewer instead of inline deterministic validation
-  - A directory path — Scope analysis to a specific subdirectory
+  - A directory path (e.g. `/path/to/repo` or `../other-project`) — Analyze the given directory instead of the current working directory
 
 ---
 
@@ -23,7 +23,12 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in `.unde
 
 Determine whether to run a full analysis or incremental update.
 
-1. Set `PROJECT_ROOT` to the current working directory.
+1. **Resolve `PROJECT_ROOT`:**
+   - Parse `$ARGUMENTS` for a non-flag token (any argument that does not start with `--`). If found, treat it as the target directory path.
+     - If the path is relative, resolve it against the current working directory.
+     - Verify the resolved path exists and is a directory (run `test -d <path>`). If it does not exist or is not a directory, report an error to the user and **STOP**.
+     - Set `PROJECT_ROOT` to the resolved absolute path.
+   - If no directory path argument is found, set `PROJECT_ROOT` to the current working directory.
 2. Get the current git commit hash:
    ```bash
    git rev-parse HEAD
