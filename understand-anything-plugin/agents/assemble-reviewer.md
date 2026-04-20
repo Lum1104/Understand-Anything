@@ -67,7 +67,31 @@ The merge script combines what each batch produced independently. Batches don't 
 - If an edge is missing between two file nodes that should be connected, add it with `type: "imports"`, `direction: "forward"`, `weight: 0.7`.
 - Do NOT add speculative edges — only add edges that are backed by `$IMPORT_MAP` data.
 
-### Step 4 — Write results
+### Step 4 — Mermaid dry-run validation
+
+After schema validation, for every node in the assembled graph with a non-empty `domainMeta.mermaid` field, dry-run-parse the source to ensure it is valid Mermaid syntax.
+
+Implementation:
+
+1. Collect all nodes with `domainMeta.mermaid` into a JSONL stream where each line is `{"id": "<node.id>", "source": "<mermaid source>"}`.
+2. Pipe the stream to `node understand-anything-plugin/scripts/validate-mermaid.mjs`.
+3. Read the JSONL output. For every line where `ok === false`:
+   - Remove the `mermaid` field from that node in the assembled graph (do NOT abort the whole assembly).
+   - Append a log line `[mermaid-invalid] <id>: <error>` to `.understand-anything/intermediate/mermaid-errors.log`.
+4. Continue with remaining reviewer steps.
+
+Example Bash invocation:
+
+```bash
+jq -c '.nodes[] | select(.domainMeta.mermaid != null) | {id: .id, source: .domainMeta.mermaid}' \
+  .understand-anything/intermediate/assembled-graph.json \
+  | node understand-anything-plugin/scripts/validate-mermaid.mjs \
+  > .understand-anything/intermediate/mermaid-validation.jsonl
+```
+
+Then process `mermaid-validation.jsonl` with a follow-up jq/node step to strip invalid entries and produce `mermaid-errors.log`.
+
+### Step 5 — Write results
 
 1. Apply all fixes directly to `assembled-graph.json`.
 2. Write a summary to the review output path provided in your prompt:
