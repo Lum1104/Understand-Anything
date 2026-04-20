@@ -10,6 +10,8 @@ import {
 import type { Edge, Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { MermaidFlowchartPopup } from "./MermaidFlowchartPopup.js";
+import { MermaidFlowchartModal } from "./MermaidFlowchartModal.js";
 import DomainClusterNode from "./DomainClusterNode";
 import type { DomainClusterFlowNode } from "./DomainClusterNode";
 import FlowNode from "./FlowNode";
@@ -219,6 +221,8 @@ function DomainGraphViewInner() {
           className="!bg-surface !border !border-border-subtle"
         />
       </ReactFlow>
+      <MermaidFlowchartPopup />
+      <MermaidFlowchartModal />
     </div>
   );
 }
