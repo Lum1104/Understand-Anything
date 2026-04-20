@@ -16,6 +16,7 @@ vi.mock("@xyflow/react", () => ({
     getNodes: () => [],
     flowToScreenPosition: (p: { x: number; y: number }) => p,
   }),
+  useStore: () => ({ x: 0, y: 0, zoom: 1 }),
 }));
 
 function seedGraph(mermaidValue?: string) {
@@ -83,5 +84,10 @@ describe("MermaidFlowchartPopup", () => {
     render(<MermaidFlowchartPopup />);
     await userEvent.keyboard("{Escape}");
     expect(useDashboardStore.getState().mermaidPopupNodeId).toBe("d1");
+  });
+
+  it("sets aria-modal on popup dialog", () => {
+    render(<MermaidFlowchartPopup />);
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });
 });

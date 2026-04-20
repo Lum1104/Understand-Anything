@@ -45,6 +45,7 @@ export function MermaidFlowchartPopup() {
         animation: "mermaid-popup-slide-up 300ms ease-out",
       }}
       role="dialog"
+      aria-modal="true"
       aria-label={`Flowchart for ${node.name}`}
     >
       <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-subtle)]">

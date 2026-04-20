@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import pako from "pako";
 import { useDashboardStore } from "../store.js";
@@ -27,6 +27,7 @@ export function MermaidFlowchartModal() {
   const nodeId = useDashboardStore((s) => s.mermaidPopupNodeId);
   const graph = useDashboardStore((s) => s.domainGraph);
   const close = useDashboardStore((s) => s.closeMermaidModal);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -36,6 +37,15 @@ export function MermaidFlowchartModal() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => {
+      previous?.focus();
+    };
+  }, [open]);
 
   if (!open || !nodeId || !graph) return null;
   const node = graph.nodes.find((n) => n.id === nodeId);
@@ -47,6 +57,7 @@ export function MermaidFlowchartModal() {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       role="dialog"
+      aria-modal="true"
       aria-label={`Enlarged flowchart for ${node.name}`}
     >
       <div
@@ -77,6 +88,7 @@ export function MermaidFlowchartModal() {
               🔗 Open in Mermaid Live
             </a>
             <button
+              ref={closeButtonRef}
               type="button"
               aria-label="Close"
               onClick={close}

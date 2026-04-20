@@ -89,4 +89,12 @@ describe("MermaidFlowchartModal", () => {
     const { container } = render(<MermaidFlowchartModal />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("sets aria-modal and focuses close button when opened", () => {
+    render(<MermaidFlowchartModal />);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    // Focus may already be on close button after useEffect runs
+    expect(screen.getByRole("button", { name: /close/i })).toBe(document.activeElement);
+  });
 });

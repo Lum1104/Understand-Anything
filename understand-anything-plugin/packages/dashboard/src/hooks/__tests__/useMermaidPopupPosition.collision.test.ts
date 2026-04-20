@@ -16,6 +16,7 @@ vi.mock("@xyflow/react", () => ({
     ],
     flowToScreenPosition: (p: { x: number; y: number }) => p,
   }),
+  useStore: () => ({ x: 0, y: 0, zoom: 1 }),
 }));
 
 import { useMermaidPopupPosition } from "../useMermaidPopupPosition.js";

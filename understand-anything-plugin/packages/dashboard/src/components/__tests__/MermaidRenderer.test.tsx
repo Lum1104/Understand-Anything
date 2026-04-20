@@ -48,4 +48,18 @@ describe("MermaidRenderer", () => {
     await userEvent.click(screen.getByRole("button", { name: /copy source/i }));
     expect(writeText).toHaveBeenCalledWith("flowchart TD\n  INVALID_SYNTAX");
   });
+
+  it("shows retry UI when the mermaid chunk fails to load", async () => {
+    vi.resetModules();
+    vi.doMock("mermaid", () => {
+      throw new Error("ChunkLoadError: expected failure");
+    });
+    const { MermaidRenderer: FreshRenderer } = await import("../MermaidRenderer.js");
+    render(<FreshRenderer source="flowchart TD\n  A --> B" />);
+    await waitFor(() =>
+      expect(screen.getByText(/Failed to load diagram library/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    vi.doUnmock("mermaid");
+  });
 });

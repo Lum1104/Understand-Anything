@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useReactFlow } from "@xyflow/react";
+import { useReactFlow, useStore, type ReactFlowState } from "@xyflow/react";
 
 export interface PopupPosition {
   x: number;
@@ -36,6 +36,7 @@ export function useMermaidPopupPosition(
   container: ContainerBounds,
 ): PopupPosition {
   const rf = useReactFlow();
+  const viewport = useStore((s: ReactFlowState) => ({ x: s.transform[0], y: s.transform[1], zoom: s.transform[2] }));
 
   return useMemo(() => {
     const centerX = (container.width - width) / 2;
@@ -75,5 +76,5 @@ export function useMermaidPopupPosition(
       if (!hit) return c;
     }
     return candidates[0];
-  }, [width, height, container.width, container.height, rf]);
+  }, [width, height, container.width, container.height, rf, viewport.x, viewport.y, viewport.zoom]);
 }
