@@ -14,6 +14,15 @@ vi.mock("mermaid", () => ({
 function seed() {
   useDashboardStore.setState({
     domainGraph: {
+      version: "1.0.0",
+      project: {
+        name: "test",
+        languages: [],
+        frameworks: [],
+        description: "",
+        analyzedAt: "",
+        gitCommitHash: "",
+      },
       nodes: [
         {
           id: "d1",
@@ -26,6 +35,8 @@ function seed() {
         },
       ],
       edges: [],
+      layers: [],
+      tour: [],
     },
     mermaidPopupNodeId: "d1",
     mermaidModalOpen: true,

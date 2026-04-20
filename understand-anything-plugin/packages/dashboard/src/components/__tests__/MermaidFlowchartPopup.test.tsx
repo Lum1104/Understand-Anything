@@ -21,6 +21,15 @@ vi.mock("@xyflow/react", () => ({
 function seedGraph(mermaidValue?: string) {
   useDashboardStore.setState({
     domainGraph: {
+      version: "1.0.0",
+      project: {
+        name: "test",
+        languages: [],
+        frameworks: [],
+        description: "",
+        analyzedAt: "",
+        gitCommitHash: "",
+      },
       nodes: [
         {
           id: "d1",
@@ -33,6 +42,8 @@ function seedGraph(mermaidValue?: string) {
         },
       ],
       edges: [],
+      layers: [],
+      tour: [],
     },
     mermaidPopupNodeId: "d1",
     mermaidModalOpen: false,

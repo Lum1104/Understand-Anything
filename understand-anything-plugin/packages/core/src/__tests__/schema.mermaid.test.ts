@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateGraph, sanitizeGraph } from "../schema.js";
+import type { KnowledgeGraph } from "../types.js";
 
 function graphWith(domainMeta: Record<string, unknown>) {
   return {
@@ -56,7 +57,7 @@ describe("DomainMeta.mermaid schema", () => {
 describe("sanitizeGraph preserves mermaid", () => {
   it("keeps a valid mermaid source through sanitization", () => {
     const g = graphWith({ mermaid: "flowchart TD\n  A --> B" });
-    const cleaned = sanitizeGraph(g as never);
+    const cleaned = sanitizeGraph(g as never) as unknown as KnowledgeGraph;
     expect(cleaned.nodes[0].domainMeta?.mermaid).toBe("flowchart TD\n  A --> B");
   });
 });
