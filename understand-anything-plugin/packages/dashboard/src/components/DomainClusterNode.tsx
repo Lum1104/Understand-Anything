@@ -18,6 +18,7 @@ function DomainClusterNode({ data }: NodeProps<DomainClusterFlowNode>) {
   const navigateToDomain = useDashboardStore((s) => s.navigateToDomain);
   const selectedNodeId = useDashboardStore((s) => s.selectedNodeId);
   const selectNode = useDashboardStore((s) => s.selectNode);
+  const openMermaidPopup = useDashboardStore((s) => s.openMermaidPopup);
   const isSelected = selectedNodeId === data.domainId;
 
   return (
@@ -27,7 +28,10 @@ function DomainClusterNode({ data }: NodeProps<DomainClusterFlowNode>) {
           ? "border-accent bg-accent/10 shadow-lg shadow-accent/10"
           : "border-accent/40 bg-surface hover:border-accent/70"
       }`}
-      onClick={() => selectNode(data.domainId)}
+      onClick={() => {
+        selectNode(data.domainId);
+        openMermaidPopup(data.domainId);
+      }}
       onDoubleClick={() => navigateToDomain(data.domainId)}
     >
       <Handle type="target" position={Position.Left} className="!bg-accent/60 !w-2 !h-2" />
