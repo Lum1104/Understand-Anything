@@ -75,6 +75,13 @@ interface DashboardStore {
   codeViewerOpen: boolean;
   codeViewerNodeId: string | null;
 
+  mermaidPopupNodeId: string | null;
+  mermaidModalOpen: boolean;
+  openMermaidPopup: (nodeId: string) => void;
+  closeMermaidPopup: () => void;
+  openMermaidModal: () => void;
+  closeMermaidModal: () => void;
+
   tourActive: boolean;
   currentTourStep: number;
   tourHighlightedNodeIds: string[];
@@ -348,6 +355,15 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   openCodeViewer: (nodeId) => set({ codeViewerOpen: true, codeViewerNodeId: nodeId }),
   closeCodeViewer: () => set({ codeViewerOpen: false, codeViewerNodeId: null }),
+
+  mermaidPopupNodeId: null,
+  mermaidModalOpen: false,
+  openMermaidPopup: (nodeId) =>
+    set({ mermaidPopupNodeId: nodeId, mermaidModalOpen: false }),
+  closeMermaidPopup: () =>
+    set({ mermaidPopupNodeId: null, mermaidModalOpen: false }),
+  openMermaidModal: () => set({ mermaidModalOpen: true }),
+  closeMermaidModal: () => set({ mermaidModalOpen: false }),
 
   setDiffOverlay: (changed, affected) =>
     set({
