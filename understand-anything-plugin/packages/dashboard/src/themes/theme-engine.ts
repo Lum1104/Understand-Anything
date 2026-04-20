@@ -1,6 +1,14 @@
 import type { ThemeConfig } from "./types.ts";
 import { getAccent, getPreset } from "./presets.ts";
 
+type ThemeChangeListener = () => void;
+const themeChangeListeners = new Set<ThemeChangeListener>();
+
+export function onThemeChange(listener: ThemeChangeListener): () => void {
+  themeChangeListeners.add(listener);
+  return () => themeChangeListeners.delete(listener);
+}
+
 export function hexToRgb(hex: string): string {
   const h = hex.replace("#", "");
   const n = parseInt(h, 16);
@@ -53,4 +61,13 @@ export function applyTheme(config: ThemeConfig): void {
 
   // 4. Set data-theme for CSS-only selectors
   document.documentElement.setAttribute("data-theme", preset.isDark ? "dark" : "light");
+
+  // 5. Notify subscribers
+  for (const listener of themeChangeListeners) {
+    try {
+      listener();
+    } catch (err) {
+      console.error("[theme-engine] listener error:", err);
+    }
+  }
 }
