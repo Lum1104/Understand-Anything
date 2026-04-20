@@ -57,7 +57,8 @@ Produce a JSON object with this exact structure:
       "domainMeta": {
         "entities": ["<key domain objects>"],
         "businessRules": ["<important constraints/invariants>"],
-        "crossDomainInteractions": ["<how this domain interacts with others>"]
+        "crossDomainInteractions": ["<how this domain interacts with others>"],
+        "mermaid": "<Mermaid flowchart TD source string; see Mermaid flowchart generation section>"
       }
     },
     {
@@ -94,6 +95,30 @@ Produce a JSON object with this exact structure:
 ```
 
 **Note:** `layers` and `tour` are intentionally empty for domain graphs. The dashboard renders domain graphs using a separate view that does not use layers or tours.
+
+### Mermaid flowchart generation
+
+For each `domain` node you produce, also emit `domainMeta.mermaid` — a Mermaid `flowchart TD` source string representing the internal business logic of that domain. Rules:
+
+- Each logical step or component in the domain is a flowchart node (e.g. "Cart Retrieval", "Currency Convert", "Payment Charge").
+- Edges represent control or data flow between steps.
+- **When an edge corresponds to an API call, label the arrow with the API** using `|METHOD /path|` syntax (e.g. `A -->|POST /charge| B`).
+- Keep node labels concise (≤40 characters); use `[...]` for process nodes and `{...}` for decisions.
+- Target 5–15 nodes per domain; if more, group related steps into Mermaid subgraphs.
+- Output valid Mermaid syntax — it will be dry-run parsed by `scripts/validate-mermaid.mjs` before commit; invalid sources will be stripped.
+
+Example:
+
+```
+flowchart TD
+  A[Cart Retrieval] -->|GET /cart| B[Product Lookup]
+  B -->|GET /products/:id| C[Currency Convert]
+  C -->|POST /currency/convert| D[Shipping Quote]
+  D -->|POST /shipping/quote| E[Payment Charge]
+  E -->|POST /charge| F[Email Confirmation]
+```
+
+Emit the source as a JSON string (newlines escaped as `\n`). Place under the domain node's `domainMeta.mermaid`. Do NOT emit for `flow` or `step` nodes — only for `domain` nodes.
 
 ## Rules
 
