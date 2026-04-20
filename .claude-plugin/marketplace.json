@@ -9,7 +9,8 @@
   "plugins": [
     {
       "name": "understand-anything",
-      "source": "./understand-anything-plugin"
+      "source": "./understand-anything-plugin",
+      "version": "2.4.0"
     }
   ]
 }
