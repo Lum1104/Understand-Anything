@@ -33,6 +33,7 @@ export interface DomainMeta {
   crossDomainInteractions?: string[];
   entryPoint?: string;
   entryType?: "http" | "cli" | "event" | "cron" | "manual";
+  mermaid?: string;
 }
 
 // GraphNode with 21 types: 5 code + 8 non-code + 3 domain + 5 knowledge

@@ -356,6 +356,7 @@ const DomainMetaSchema = z.object({
   crossDomainInteractions: z.array(z.string()).optional(),
   entryPoint: z.string().optional(),
   entryType: z.enum(["http", "cli", "event", "cron", "manual"]).optional(),
+  mermaid: z.string().min(1).optional(),
 }).passthrough();
 
 const KnowledgeMetaSchema = z.object({
