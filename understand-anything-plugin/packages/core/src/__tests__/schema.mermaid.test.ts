@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateGraph } from "../schema.js";
+import { validateGraph, sanitizeGraph } from "../schema.js";
 
 function graphWith(domainMeta: Record<string, unknown>) {
   return {
@@ -50,5 +50,13 @@ describe("DomainMeta.mermaid schema", () => {
   it("rejects a non-string mermaid value", () => {
     const result = validateGraph(graphWith({ mermaid: 42 as unknown as string }));
     expect(result.success).toBe(false);
+  });
+});
+
+describe("sanitizeGraph preserves mermaid", () => {
+  it("keeps a valid mermaid source through sanitization", () => {
+    const g = graphWith({ mermaid: "flowchart TD\n  A --> B" });
+    const cleaned = sanitizeGraph(g as never);
+    expect(cleaned.nodes[0].domainMeta?.mermaid).toBe("flowchart TD\n  A --> B");
   });
 });
