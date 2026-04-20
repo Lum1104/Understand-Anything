@@ -495,15 +495,16 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
     set({ isKnowledgeGraph: value });
   },
 
-  setViewMode: (mode) => {
-    set({
+  setViewMode: (mode) =>
+    set((state) => ({
       viewMode: mode,
       selectedNodeId: null,
       focusNodeId: null,
       codeViewerOpen: false,
       codeViewerNodeId: null,
-    });
-  },
+      mermaidPopupNodeId: mode === "domain" ? state.mermaidPopupNodeId : null,
+      mermaidModalOpen: mode === "domain" ? state.mermaidModalOpen : false,
+    })),
 
   navigateToDomain: (domainId) => {
     const { selectedNodeId, nodeHistory } = get();
