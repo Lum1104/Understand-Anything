@@ -21,6 +21,15 @@ if (!("matchMedia" in window)) {
   });
 }
 
+if (!("ResizeObserver" in window)) {
+  class MockResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (window as any).ResizeObserver = MockResizeObserver;
+}
+
 if (!("randomUUID" in crypto)) {
   Object.defineProperty(crypto, "randomUUID", {
     value: () =>
