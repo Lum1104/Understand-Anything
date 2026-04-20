@@ -9,4 +9,5 @@ coverage/
 *.log
 .claude/
 .worktrees/
+.superpowers/
 homepage/public/demo/
