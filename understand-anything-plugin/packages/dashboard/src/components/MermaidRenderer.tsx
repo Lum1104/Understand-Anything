@@ -98,9 +98,11 @@ export function MermaidRenderer({ source }: Props) {
   }
 
   return (
-    <div
-      className="flex items-center justify-center h-full overflow-auto"
-      dangerouslySetInnerHTML={{ __html: state.svg }}
-    />
+    <div className="h-full w-full overflow-auto p-4">
+      <div
+        className="w-full flex justify-center"
+        dangerouslySetInnerHTML={{ __html: state.svg }}
+      />
+    </div>
   );
 }

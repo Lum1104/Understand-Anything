@@ -15,7 +15,7 @@ describe("getMermaidTheme", () => {
 
   it("reads CSS variables into Mermaid themeVariables", () => {
     const theme = getMermaidTheme();
-    expect(theme.background).toBe("#121212");
+    expect(theme.background).toBe("#161616");
     expect(theme.primaryBorderColor).toBe("#d4a574");
     expect(theme.primaryColor).toBe("#a88554");
     expect(theme.fontFamily).toContain("Inter");
