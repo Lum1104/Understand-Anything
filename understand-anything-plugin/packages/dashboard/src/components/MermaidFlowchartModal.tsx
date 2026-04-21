@@ -76,7 +76,7 @@ export function MermaidFlowchartModal() {
               className="px-3 py-1 rounded border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 text-xs"
               onClick={() => navigator.clipboard?.writeText(source)}
             >
-              📋 Copy source
+              Copy source
             </button>
             <a
               aria-label="Open in Mermaid Live"
@@ -85,7 +85,7 @@ export function MermaidFlowchartModal() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              🔗 Open in Mermaid Live
+              Open in Mermaid Live
             </a>
             <button
               ref={closeButtonRef}
@@ -94,7 +94,7 @@ export function MermaidFlowchartModal() {
               onClick={close}
               className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-accent)]/10"
             >
-              ✕
+              <CloseIcon />
             </button>
           </div>
         </header>
@@ -104,5 +104,14 @@ export function MermaidFlowchartModal() {
       </div>
     </div>,
     document.body,
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4l8 8" />
+      <path d="M12 4l-8 8" />
+    </svg>
   );
 }

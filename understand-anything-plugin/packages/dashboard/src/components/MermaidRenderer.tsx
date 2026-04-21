@@ -33,6 +33,14 @@ export function MermaidRenderer({ source }: Props) {
         startOnLoad: false,
         theme: "base",
         themeVariables: getMermaidTheme() as unknown as Record<string, string>,
+        flowchart: {
+          padding: 8,
+          nodeSpacing: 32,
+          rankSpacing: 40,
+          curve: "basis",
+          htmlLabels: true,
+          useMaxWidth: true,
+        },
       });
       try {
         const id = `m-${crypto.randomUUID()}`;

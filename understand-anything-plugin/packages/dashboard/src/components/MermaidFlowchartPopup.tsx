@@ -61,7 +61,7 @@ export function MermaidFlowchartPopup() {
             onClick={openModal}
             className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ⤢
+            <EnlargeIcon />
           </button>
           <button
             type="button"
@@ -69,7 +69,7 @@ export function MermaidFlowchartPopup() {
             onClick={closePopup}
             className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-accent)]/10"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
       </header>
@@ -98,5 +98,25 @@ function EmptyState() {
         to generate the flowchart.
       </p>
     </div>
+  );
+}
+
+function EnlargeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2h4v4" />
+      <path d="M6 14H2v-4" />
+      <path d="M14 2L9 7" />
+      <path d="M2 14l5-5" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4l8 8" />
+      <path d="M12 4l-8 8" />
+    </svg>
   );
 }
