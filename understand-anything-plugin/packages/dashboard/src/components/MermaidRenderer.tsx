@@ -1,6 +1,55 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { getMermaidTheme } from "../themes/mermaid-theme.js";
 import { onThemeChange } from "../themes/theme-engine.js";
+
+function PanZoomScroll({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("a, button, input")) return;
+    const el = ref.current;
+    if (!el) return;
+    drag.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+    };
+    el.style.cursor = "grabbing";
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!drag.current || !ref.current) return;
+    const dx = e.clientX - drag.current.startX;
+    const dy = e.clientY - drag.current.startY;
+    ref.current.scrollLeft = drag.current.scrollLeft - dx;
+    ref.current.scrollTop = drag.current.scrollTop - dy;
+  };
+
+  const endDrag = () => {
+    if (!drag.current) return;
+    drag.current = null;
+    if (ref.current) ref.current.style.cursor = "grab";
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="h-full w-full overflow-auto p-4 select-none"
+      style={{ cursor: "grab" }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={endDrag}
+      onMouseLeave={endDrag}
+    >
+      {children}
+    </div>
+  );
+}
 
 type RenderState =
   | { kind: "loading" }
@@ -106,11 +155,11 @@ export function MermaidRenderer({ source }: Props) {
   }
 
   return (
-    <div className="h-full w-full overflow-auto p-4">
+    <PanZoomScroll>
       <div
         className="w-full flex justify-center"
         dangerouslySetInnerHTML={{ __html: state.svg }}
       />
-    </div>
+    </PanZoomScroll>
   );
 }
