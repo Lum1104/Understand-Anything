@@ -88,7 +88,7 @@ export function MermaidRenderer({ source }: Props) {
           rankSpacing: 40,
           curve: "basis",
           htmlLabels: true,
-          useMaxWidth: true,
+          useMaxWidth: false,
         },
       });
       try {
@@ -157,7 +157,7 @@ export function MermaidRenderer({ source }: Props) {
   return (
     <PanZoomScroll>
       <div
-        className="w-full flex justify-center"
+        className="inline-block"
         dangerouslySetInnerHTML={{ __html: state.svg }}
       />
     </PanZoomScroll>
