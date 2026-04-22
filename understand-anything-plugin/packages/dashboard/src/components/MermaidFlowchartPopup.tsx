@@ -13,17 +13,30 @@ export function MermaidFlowchartPopup() {
   const openModal = useDashboardStore((s) => s.openMermaidModal);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [bounds, setBounds] = useState({ width: 0, height: 0 });
+  const [bounds, setBounds] = useState({ width: 0, height: 0, left: 0, top: 0 });
 
   useEffect(() => {
     const el = containerRef.current?.parentElement;
     if (!el) return;
-    const update = () =>
-      setBounds({ width: el.clientWidth, height: el.clientHeight });
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setBounds({
+        width: el.clientWidth,
+        height: el.clientHeight,
+        left: rect.left,
+        top: rect.top,
+      });
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
   }, [nodeId]);
 
   const position = useMermaidPopupPosition(POPUP_W, POPUP_H, bounds);

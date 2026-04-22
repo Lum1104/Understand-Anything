@@ -9,6 +9,12 @@ export interface PopupPosition {
 export interface ContainerBounds {
   width: number;
   height: number;
+  /** Viewport-left of the popup container. Used to translate node rects
+   *  (which `flowToScreenPosition` returns in viewport pixels) into the
+   *  same local space as `popupRect`. Defaults to 0. */
+  left?: number;
+  /** Viewport-top of the popup container. See `left`. Defaults to 0. */
+  top?: number;
 }
 
 const MARGIN = 16;
@@ -49,6 +55,8 @@ export function useMermaidPopupPosition(
     ];
 
     const nodes = rf.getNodes();
+    const originX = container.left ?? 0;
+    const originY = container.top ?? 0;
 
     for (const c of candidates) {
       const popupRect: Rect = {
@@ -67,14 +75,14 @@ export function useMermaidPopupPosition(
           y: n.position.y + (n.height ?? 80),
         });
         return aabbIntersect(popupRect, {
-          left: topLeft.x,
-          top: topLeft.y,
-          right: bottomRight.x,
-          bottom: bottomRight.y,
+          left: topLeft.x - originX,
+          top: topLeft.y - originY,
+          right: bottomRight.x - originX,
+          bottom: bottomRight.y - originY,
         });
       });
       if (!hit) return c;
     }
     return candidates[0];
-  }, [width, height, container.width, container.height, rf, viewport.x, viewport.y, viewport.zoom]);
+  }, [width, height, container.width, container.height, container.left, container.top, rf, viewport.x, viewport.y, viewport.zoom]);
 }
