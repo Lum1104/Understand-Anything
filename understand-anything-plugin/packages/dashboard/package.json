@@ -20,6 +20,7 @@
     "elkjs": "^0.9.3",
     "graphology": "^0.25.4",
     "graphology-communities-louvain": "^2.0.1",
+    "graphology-types": "^0.24.8",
     "hast-util-to-jsx-runtime": "^2.3.6",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.0.0",

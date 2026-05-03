@@ -124,6 +124,9 @@ importers:
       graphology-communities-louvain:
         specifier: ^2.0.1
         version: 2.0.2(graphology-types@0.24.8)
+      graphology-types:
+        specifier: ^0.24.8
+        version: 0.24.8
       hast-util-to-jsx-runtime:
         specifier: ^2.3.6
         version: 2.3.6
