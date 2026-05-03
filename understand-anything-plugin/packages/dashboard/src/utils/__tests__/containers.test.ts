@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { deriveContainers } from "../containers";
-import type { GraphNode } from "@understand-anything/core/types";
+import type { GraphNode, GraphEdge } from "@understand-anything/core/types";
 
 function node(id: string, filePath?: string): GraphNode {
   return {
@@ -85,5 +85,41 @@ describe("deriveContainers — folder strategy", () => {
     const { containers, ungrouped } = deriveContainers(nodes, []);
     expect(containers).toHaveLength(0);
     expect(ungrouped.sort()).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("deriveContainers — community fallback", () => {
+  it("falls back to communities when only one folder present", () => {
+    const nodes = Array.from({ length: 10 }, (_, i) =>
+      node(`n${i}`, `services/n${i}.go`),
+    );
+    // Two clusters of 5 nodes; densely connected within, no edges between
+    const edges: GraphEdge[] = [];
+    for (const i of [0, 1, 2, 3, 4]) {
+      for (const j of [0, 1, 2, 3, 4]) {
+        if (i !== j) edges.push({ source: `n${i}`, target: `n${j}`, type: "calls" } as GraphEdge);
+      }
+    }
+    for (const i of [5, 6, 7, 8, 9]) {
+      for (const j of [5, 6, 7, 8, 9]) {
+        if (i !== j) edges.push({ source: `n${i}`, target: `n${j}`, type: "calls" } as GraphEdge);
+      }
+    }
+    const { containers } = deriveContainers(nodes, edges);
+    expect(containers.length).toBeGreaterThanOrEqual(2);
+    for (const c of containers) {
+      expect(c.strategy).toBe("community");
+      expect(c.name).toMatch(/^Cluster [A-Z]$/);
+    }
+  });
+
+  it("falls back when one folder holds > 60%", () => {
+    const nodes = [
+      ...Array.from({ length: 8 }, (_, i) => node(`big${i}`, `big/file${i}.go`)),
+      node("a", "small1/a.go"),
+      node("b", "small2/b.go"),
+    ];
+    const { containers } = deriveContainers(nodes, []);
+    expect(containers.every((c) => c.strategy === "community")).toBe(true);
   });
 });
