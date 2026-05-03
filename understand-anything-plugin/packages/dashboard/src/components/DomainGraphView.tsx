@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -17,7 +17,8 @@ import type { FlowFlowNode } from "./FlowNode";
 import StepNode from "./StepNode";
 import type { StepFlowNode } from "./StepNode";
 import { useDashboardStore } from "../store";
-import { applyDagreLayout } from "../utils/layout";
+import { mergeElkPositions, nodesToElkInput } from "../utils/layout";
+import { applyElkLayout } from "../utils/elk-layout";
 import type { KnowledgeGraph, GraphNode } from "@understand-anything/core/types";
 
 const nodeTypes = {
@@ -30,7 +31,13 @@ function getDomainMeta(node: GraphNode) {
   return node.domainMeta;
 }
 
-function buildDomainOverview(graph: KnowledgeGraph): { nodes: Node[]; edges: Edge[] } {
+interface BuiltGraph {
+  nodes: Node[];
+  edges: Edge[];
+  dims: Map<string, { width: number; height: number }>;
+}
+
+function buildDomainOverview(graph: KnowledgeGraph): BuiltGraph {
   const dims = new Map<string, { width: number; height: number }>();
   const domainNodes = graph.nodes.filter((n) => n.type === "domain");
 
@@ -76,17 +83,13 @@ function buildDomainOverview(graph: KnowledgeGraph): { nodes: Node[]; edges: Edg
       animated: true,
     }));
 
-  // Compute spacing based on longest edge label (~6px per char at fontSize 10)
-  const maxLabelLen = Math.max(0, ...rfEdges.map((e) => String(e.label ?? "").length));
-  const ranksep = Math.max(120, maxLabelLen * 6);
-
-  return applyDagreLayout(rfNodes, rfEdges, "LR", dims, { ranksep });
+  return { nodes: rfNodes as unknown as Node[], edges: rfEdges, dims };
 }
 
 function buildDomainDetail(
   graph: KnowledgeGraph,
   domainId: string,
-): { nodes: Node[]; edges: Edge[] } {
+): BuiltGraph {
   // Find flows for this domain
   const flowIds = new Set(
     graph.edges
@@ -157,7 +160,7 @@ function buildDomainDetail(
     animated: false,
   }));
 
-  return applyDagreLayout(rfNodes, rfEdges, "LR", dims);
+  return { nodes: rfNodes, edges: rfEdges, dims };
 }
 
 function DomainGraphViewInner() {
@@ -165,13 +168,45 @@ function DomainGraphViewInner() {
   const activeDomainId = useDashboardStore((s) => s.activeDomainId);
   const clearActiveDomain = useDashboardStore((s) => s.clearActiveDomain);
 
-  const { nodes, edges } = useMemo(() => {
-    if (!domainGraph) return { nodes: [], edges: [] };
+  // Build structural nodes/edges/dims synchronously; only the layout call
+  // itself is async, so we memo the structural pieces and run ELK in an
+  // effect.
+  const built = useMemo<BuiltGraph | null>(() => {
+    if (!domainGraph) return null;
     if (activeDomainId) {
       return buildDomainDetail(domainGraph, activeDomainId);
     }
     return buildDomainOverview(domainGraph);
   }, [domainGraph, activeDomainId]);
+
+  const [layout, setLayout] = useState<{ nodes: Node[]; edges: Edge[] }>({
+    nodes: [],
+    edges: [],
+  });
+
+  useEffect(() => {
+    if (!built) {
+      setLayout({ nodes: [], edges: [] });
+      return;
+    }
+    let cancelled = false;
+    const { nodes: nodesArray, edges: edgesArray, dims } = built;
+    const elkInput = nodesToElkInput(nodesArray, edgesArray, dims);
+    applyElkLayout(elkInput, { strict: import.meta.env.DEV }).then(
+      ({ positioned }) => {
+        if (cancelled) return;
+        setLayout({
+          nodes: mergeElkPositions(nodesArray, positioned),
+          edges: edgesArray,
+        });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [built]);
+
+  const { nodes, edges } = layout;
 
   // Double-click is handled by individual node components (e.g. DomainClusterNode)
 
