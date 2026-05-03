@@ -387,7 +387,17 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
       expandedContainers: new Set(),
     }),
 
-  setFocusNode: (nodeId) => set({ focusNodeId: nodeId, selectedNodeId: nodeId }),
+  setFocusNode: (nodeId) =>
+    set({
+      focusNodeId: nodeId,
+      selectedNodeId: nodeId,
+      // Focus mode narrows filteredGraphNodes to focus + 1-hop; the
+      // surviving containers have a subset of their original children,
+      // and the cache must not return positions for filtered-out ids.
+      containerLayoutCache: new Map(),
+      containerSizeMemory: new Map(),
+      expandedContainers: new Set(),
+    }),
   setSearchMode: (mode) => set({ searchMode: mode }),
   setSearchQuery: (query) => {
     const engine = get().searchEngine;

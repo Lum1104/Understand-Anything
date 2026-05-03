@@ -21,6 +21,11 @@ export const PORTAL_NODE_HEIGHT = 80;
 
 /**
  * Synchronous dagre layout — used for small graphs.
+ *
+ * @deprecated The dashboard's structural views all use ELK now
+ * (`applyElkLayout` from `./elk-layout`). This helper is kept for one
+ * release to allow a quick fallback if ELK has a regression. Slated for
+ * removal in the version after layout migration is verified stable.
  */
 export function applyDagreLayout(
   nodes: Node[],
