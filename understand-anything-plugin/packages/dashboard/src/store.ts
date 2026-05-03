@@ -244,6 +244,12 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
         ...state.nodeTypeFilters,
         [category]: !state.nodeTypeFilters[category],
       },
+      // Filter changes shift container.nodeIds; cached child positions
+      // may reference filtered-out children. Drop the cache so Stage 2
+      // recomputes against the current set.
+      containerLayoutCache: new Map(),
+      containerSizeMemory: new Map(),
+      expandedContainers: new Set(),
     })),
 
   setGraph: (graph) => {
@@ -359,6 +365,12 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
       codeViewerOpen: false,
       codeViewerNodeId: null,
       codeViewerExpanded: false,
+      // Container ids derive from folder names and collide across layers
+      // (e.g. `container:auth` exists in many layers). Drop the cache so
+      // we don't render stale positions for the new layer's children.
+      containerLayoutCache: new Map(),
+      containerSizeMemory: new Map(),
+      expandedContainers: new Set(),
     }),
 
   navigateToOverview: () =>
@@ -370,6 +382,9 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
       codeViewerOpen: false,
       codeViewerNodeId: null,
       codeViewerExpanded: false,
+      containerLayoutCache: new Map(),
+      containerSizeMemory: new Map(),
+      expandedContainers: new Set(),
     }),
 
   setFocusNode: (nodeId) => set({ focusNodeId: nodeId, selectedNodeId: nodeId }),
@@ -388,7 +403,14 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
     set({ searchQuery: query, searchResults });
   },
 
-  setPersona: (persona) => set({ persona }),
+  setPersona: (persona) =>
+    set({
+      persona,
+      // Persona changes filter node types, which shifts container.nodeIds.
+      containerLayoutCache: new Map(),
+      containerSizeMemory: new Map(),
+      expandedContainers: new Set(),
+    }),
 
   openCodeViewer: (nodeId) =>
     set({ codeViewerOpen: true, codeViewerNodeId: nodeId, codeViewerExpanded: false }),
