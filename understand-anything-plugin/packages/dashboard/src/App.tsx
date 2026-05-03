@@ -117,6 +117,13 @@ function Dashboard({ accessToken }: { accessToken: string }) {
   const isKnowledgeGraph = useDashboardStore((s) => s.isKnowledgeGraph);
   const domainGraph = useDashboardStore((s) => s.domainGraph);
   const setDomainGraph = useDashboardStore((s) => s.setDomainGraph);
+  const layoutIssues = useDashboardStore((s) => s.layoutIssues);
+  // Schema issues + ELK layout issues share the WarningBanner — graph-load
+  // problems and dashboard rendering problems are equally surfaced.
+  const allIssues = useMemo(
+    () => [...graphIssues, ...layoutIssues],
+    [graphIssues, layoutIssues],
+  );
 
   useEffect(() => {
     fetch(dataUrl("meta.json", accessToken))
@@ -506,8 +513,8 @@ function Dashboard({ accessToken }: { accessToken: string }) {
       <SearchBar />
 
       {/* Validation warning banner */}
-      {graphIssues.length > 0 && !loadError && (
-        <WarningBanner issues={graphIssues} />
+      {allIssues.length > 0 && !loadError && (
+        <WarningBanner issues={allIssues} />
       )}
 
       {/* Error banner */}

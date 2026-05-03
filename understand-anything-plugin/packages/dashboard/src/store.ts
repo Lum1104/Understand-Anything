@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { SearchEngine } from "@understand-anything/core/search";
 import type { SearchResult } from "@understand-anything/core/search";
+import type { GraphIssue } from "@understand-anything/core/schema";
 import type {
   KnowledgeGraph,
   TourStep,
@@ -173,6 +174,12 @@ interface DashboardStore {
 
   stage1Tick: number;
   bumpStage1Tick: () => void;
+
+  // Layout-time issues (e.g. ELK input repair). Funneled into the
+  // WarningBanner alongside graph-validation issues.
+  layoutIssues: GraphIssue[];
+  appendLayoutIssues: (issues: GraphIssue[]) => void;
+  clearLayoutIssues: () => void;
 }
 
 function getSortedTour(graph: KnowledgeGraph): TourStep[] {
@@ -261,6 +268,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
       expandedContainers: new Set(),
       containerSizeMemory: new Map(),
       stage1Tick: 0,
+      layoutIssues: [],
     });
   },
 
@@ -584,4 +592,19 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   stage1Tick: 0,
   bumpStage1Tick: () => set((s) => ({ stage1Tick: s.stage1Tick + 1 })),
+
+  layoutIssues: [],
+  appendLayoutIssues: (issues) =>
+    set((state) => {
+      if (issues.length === 0) return {};
+      // Dedupe by level+message so a re-running effect doesn't repeatedly
+      // pile up identical issues.
+      const seen = new Set(
+        state.layoutIssues.map((i) => `${i.level}|${i.message}`),
+      );
+      const fresh = issues.filter((i) => !seen.has(`${i.level}|${i.message}`));
+      if (fresh.length === 0) return {};
+      return { layoutIssues: [...state.layoutIssues, ...fresh] };
+    }),
+  clearLayoutIssues: () => set({ layoutIssues: [] }),
 }));

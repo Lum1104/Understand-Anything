@@ -199,8 +199,8 @@ function DomainGraphViewInner() {
       .then(({ positioned, issues }) => {
         if (cancelled) return;
         if (issues.length > 0) {
-          // TODO: Task 16 funnels these into the WarningBanner.
-          console.warn("[domain ELK] layout issues:", issues);
+          // Funnel into store so WarningBanner surfaces them.
+          useDashboardStore.getState().appendLayoutIssues(issues);
         }
         setLayout({
           nodes: mergeElkPositions(nodesArray, positioned),

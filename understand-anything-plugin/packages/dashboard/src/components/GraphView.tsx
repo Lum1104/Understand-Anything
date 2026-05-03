@@ -228,37 +228,42 @@ function useOverviewGraph() {
     nodes: [],
     edges: [],
   });
+  const [layoutStatus, setLayoutStatus] = useState<"computing" | "ready">("ready");
 
   useEffect(() => {
     if (!built) {
       setOverview({ nodes: [], edges: [] });
+      setLayoutStatus("ready");
       return;
     }
     let cancelled = false;
     const { clusterNodes, flowEdges, dims } = built;
     const baseNodes = clusterNodes as unknown as Node[];
     const elkInput = nodesToElkInput(baseNodes, flowEdges, dims);
+    setLayoutStatus("computing");
     applyElkLayout(elkInput, { strict: import.meta.env.DEV })
       .then(({ positioned, issues }) => {
         if (cancelled) return;
         if (issues.length > 0) {
-          // TODO: Task 16 wires these into the WarningBanner. Until then,
-          // surface them in the console so they aren't completely silent.
-          console.warn("[overview ELK] layout issues:", issues);
+          // Funnel into store so WarningBanner surfaces them. getState()
+          // avoids re-creating the closure on every layoutIssues change.
+          useDashboardStore.getState().appendLayoutIssues(issues);
         }
         const positionedNodes = mergeElkPositions(baseNodes, positioned);
         setOverview({ nodes: positionedNodes, edges: flowEdges });
+        setLayoutStatus("ready");
       })
       .catch((err) => {
         if (cancelled) return;
         console.error("[overview ELK] layout failed:", err);
+        setLayoutStatus("ready");
       });
     return () => {
       cancelled = true;
     };
   }, [built]);
 
-  return overview;
+  return { ...overview, layoutStatus };
 }
 
 // ── Layer detail level: topology (ELK Stage 1) + visual overlay ─────────
@@ -295,7 +300,9 @@ const EMPTY_TOPOLOGY: LayerDetailTopology = {
  * selectedNodeId, searchResults, tourHighlightedNodeIds, or
  * expandedContainers (Stage 2 concern).
  */
-function useLayerDetailTopology(): LayerDetailTopology {
+function useLayerDetailTopology(): LayerDetailTopology & {
+  layoutStatus: "computing" | "ready";
+} {
   const graph = useDashboardStore((s) => s.graph);
   const activeLayerId = useDashboardStore((s) => s.activeLayerId);
   const selectNode = useDashboardStore((s) => s.selectNode);
@@ -575,10 +582,12 @@ function useLayerDetailTopology(): LayerDetailTopology {
   // surrounding atoms reflow into the correct positions.
   const stage1Tick = useDashboardStore((s) => s.stage1Tick);
   const [topology, setTopology] = useState<LayerDetailTopology>(EMPTY_TOPOLOGY);
+  const [layoutStatus, setLayoutStatus] = useState<"computing" | "ready">("ready");
 
   useEffect(() => {
     if (!built) {
       setTopology(EMPTY_TOPOLOGY);
+      setLayoutStatus("ready");
       return;
     }
     let cancelled = false;
@@ -646,12 +655,13 @@ function useLayerDetailTopology(): LayerDetailTopology {
       edges: stage1Edges,
     };
 
+    setLayoutStatus("computing");
     applyElkLayout(elkInput, { strict: import.meta.env.DEV })
       .then(({ positioned, issues }) => {
         if (cancelled) return;
         if (issues.length > 0) {
-          // TODO: Task 16 wires these into the WarningBanner.
-          console.warn("[layer-detail Stage 1 ELK] layout issues:", issues);
+          // Funnel into store so WarningBanner surfaces them.
+          useDashboardStore.getState().appendLayoutIssues(issues);
         }
         const allBaseNodes: Node[] = [
           ...(containerFlowNodes as unknown as Node[]),
@@ -670,10 +680,12 @@ function useLayerDetailTopology(): LayerDetailTopology {
           nodeToContainer,
           intraContainer,
         });
+        setLayoutStatus("ready");
       })
       .catch((err) => {
         if (cancelled) return;
         console.error("[layer-detail Stage 1 ELK] layout failed:", err);
+        setLayoutStatus("ready");
       });
 
     return () => {
@@ -736,7 +748,8 @@ function useLayerDetailTopology(): LayerDetailTopology {
             strict: import.meta.env.DEV,
           });
           if (issues.length > 0) {
-            console.warn(`[Stage 2 ${containerId}] issues:`, issues);
+            // Funnel into store so WarningBanner surfaces them.
+            useDashboardStore.getState().appendLayoutIssues(issues);
           }
           const childPositions = new Map<string, { x: number; y: number }>();
           let maxX = 0;
@@ -806,7 +819,7 @@ function useLayerDetailTopology(): LayerDetailTopology {
     bumpStage1Tick,
   ]);
 
-  return topology;
+  return { ...topology, layoutStatus };
 }
 
 /**
@@ -1157,7 +1170,13 @@ function useLayerDetailGraph() {
     [topo.containers],
   );
 
-  return { nodes, edges, nodeToContainer: topo.nodeToContainer, containerIds };
+  return {
+    nodes,
+    edges,
+    nodeToContainer: topo.nodeToContainer,
+    containerIds,
+    layoutStatus: topo.layoutStatus,
+  };
 }
 
 // ── Main inner component (must be inside ReactFlowProvider) ────────────
@@ -1183,6 +1202,7 @@ function GraphViewInner() {
     edges: initialEdges,
     nodeToContainer,
     containerIds,
+    layoutStatus,
   } = navigationLevel === "overview"
     ? { ...overviewGraph, nodeToContainer: undefined, containerIds: undefined }
     : detailGraph;
@@ -1347,6 +1367,22 @@ function GraphViewInner() {
         <TourFitView />
         <SelectedNodeFitView />
       </ReactFlow>
+      {layoutStatus === "computing" && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10,10,10,0.5)",
+            pointerEvents: "none",
+            zIndex: 10,
+          }}
+        >
+          <span style={{ color: "#d4a574", fontSize: 14 }}>Computing layout…</span>
+        </div>
+      )}
     </div>
   );
 }
