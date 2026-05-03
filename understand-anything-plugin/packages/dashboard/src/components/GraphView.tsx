@@ -1064,16 +1064,20 @@ function useLayerDetailGraph() {
         const ftc = topo.nodeToContainer.get(fe.target);
         return fsc === e.source && ftc === e.target;
       });
-      for (const m of matching) {
+      // Index suffix guards against parallel edges with identical
+      // (source, target, type) — schema doesn't enforce uniqueness on
+      // that triple, so two edges from the same agent run could otherwise
+      // collide in React Flow's edge map.
+      matching.forEach((m, idx) => {
         out.push({
-          id: `inflated-${m.source}-${m.target}-${m.type}`,
+          id: `inflated-${m.source}-${m.target}-${m.type}-${idx}`,
           source: m.source,
           target: m.target,
           label: m.type,
           style: { stroke: "rgba(212,165,116,0.5)", strokeWidth: 1.5 },
           labelStyle: { fill: "#a39787", fontSize: 10 },
         });
-      }
+      });
     }
     return out;
   }, [topo.edges, topo.filteredEdges, topo.nodeToContainer, expandedContainers]);
@@ -1185,20 +1189,34 @@ function GraphViewInner() {
   // user collapses manually). The handler reads expandedContainers via
   // getState() inside the timeout to avoid re-creating on every expand.
   const zoomTimeoutRef = useRef<number | null>(null);
-  const onMove = useCallback(() => {
-    if (!containerIds || containerIds.length === 0) return;
-    if (zoomTimeoutRef.current !== null) {
-      window.clearTimeout(zoomTimeoutRef.current);
-    }
-    zoomTimeoutRef.current = window.setTimeout(() => {
-      const vp = getViewport();
-      if (vp.zoom <= 1.0) return;
-      const expanded = useDashboardStore.getState().expandedContainers;
-      for (const cid of containerIds) {
-        if (!expanded.has(cid)) expandContainer(cid);
+  // Only auto-expand on user-driven zoom-INs. Skip programmatic moves
+  // (e.g. fitView at layer entry, which would otherwise cascade-expand
+  // every container the moment the layer paints) and skip pans/zoom-outs
+  // (so a user who manually collapses a container at zoom > 1 can pan
+  // around without seeing it pop back open).
+  const prevZoomRef = useRef<number | null>(null);
+  const onMove = useCallback(
+    (event: MouseEvent | TouchEvent | null) => {
+      if (event === null) return; // programmatic — skip
+      if (!containerIds || containerIds.length === 0) return;
+      if (zoomTimeoutRef.current !== null) {
+        window.clearTimeout(zoomTimeoutRef.current);
       }
-    }, 200);
-  }, [containerIds, getViewport, expandContainer]);
+      zoomTimeoutRef.current = window.setTimeout(() => {
+        const vp = getViewport();
+        const prev = prevZoomRef.current;
+        prevZoomRef.current = vp.zoom;
+        if (vp.zoom <= 1.0) return;
+        // Only fire when zoom actually increased — pan and zoom-out are no-ops.
+        if (prev !== null && vp.zoom <= prev) return;
+        const expanded = useDashboardStore.getState().expandedContainers;
+        for (const cid of containerIds) {
+          if (!expanded.has(cid)) expandContainer(cid);
+        }
+      }, 200);
+    },
+    [containerIds, getViewport, expandContainer],
+  );
 
   // Clear any pending zoom timer on unmount or when handler identity changes.
   useEffect(() => {
