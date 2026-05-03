@@ -191,16 +191,26 @@ function DomainGraphViewInner() {
     }
     let cancelled = false;
     const { nodes: nodesArray, edges: edgesArray, dims } = built;
-    const elkInput = nodesToElkInput(nodesArray, edgesArray, dims);
-    applyElkLayout(elkInput, { strict: import.meta.env.DEV }).then(
-      ({ positioned }) => {
+    // DomainGraphView used dagre LR; preserve that direction with ELK.
+    const elkInput = nodesToElkInput(nodesArray, edgesArray, dims, {
+      "elk.direction": "RIGHT",
+    });
+    applyElkLayout(elkInput, { strict: import.meta.env.DEV })
+      .then(({ positioned, issues }) => {
         if (cancelled) return;
+        if (issues.length > 0) {
+          // TODO: Task 16 funnels these into the WarningBanner.
+          console.warn("[domain ELK] layout issues:", issues);
+        }
         setLayout({
           nodes: mergeElkPositions(nodesArray, positioned),
           edges: edgesArray,
         });
-      },
-    );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[domain ELK] layout failed:", err);
+      });
     return () => {
       cancelled = true;
     };

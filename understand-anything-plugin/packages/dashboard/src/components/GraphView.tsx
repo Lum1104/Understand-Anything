@@ -224,21 +224,23 @@ function useOverviewGraph() {
     }
     let cancelled = false;
     const { clusterNodes, flowEdges, dims } = built;
-    const elkInput = nodesToElkInput(
-      clusterNodes as unknown as Node[],
-      flowEdges,
-      dims,
-    );
-    applyElkLayout(elkInput, { strict: import.meta.env.DEV }).then(
-      ({ positioned }) => {
+    const baseNodes = clusterNodes as unknown as Node[];
+    const elkInput = nodesToElkInput(baseNodes, flowEdges, dims);
+    applyElkLayout(elkInput, { strict: import.meta.env.DEV })
+      .then(({ positioned, issues }) => {
         if (cancelled) return;
-        const positionedNodes = mergeElkPositions(
-          clusterNodes as unknown as Node[],
-          positioned,
-        );
+        if (issues.length > 0) {
+          // TODO: Task 16 wires these into the WarningBanner. Until then,
+          // surface them in the console so they aren't completely silent.
+          console.warn("[overview ELK] layout issues:", issues);
+        }
+        const positionedNodes = mergeElkPositions(baseNodes, positioned);
         setOverview({ nodes: positionedNodes, edges: flowEdges });
-      },
-    );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[overview ELK] layout failed:", err);
+      });
     return () => {
       cancelled = true;
     };

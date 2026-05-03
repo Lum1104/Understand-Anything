@@ -202,10 +202,11 @@ export function nodesToElkInput(
   nodes: Node[],
   edges: Edge[],
   dims: Map<string, { width: number; height: number }>,
+  layoutOptionsOverride?: Record<string, string>,
 ): ElkInput {
   return {
     id: "root",
-    layoutOptions: ELK_DEFAULT_LAYOUT_OPTIONS,
+    layoutOptions: { ...ELK_DEFAULT_LAYOUT_OPTIONS, ...layoutOptionsOverride },
     children: nodes.map((n) => {
       const d = dims.get(n.id);
       return {
