@@ -260,7 +260,17 @@ Using the script's structural data and file categories, create edges:
 | `related` | Non-code file is topically related to another file without a specific structural relationship | `0.5` | `forward` |
 | `depends_on` | Non-code file depends on another file (e.g., docker-compose depends on Dockerfile, CI workflow depends on Makefile targets) | `0.6` | `forward` |
 
-**Import edge creation rule for code files:** For each resolved path in `batchImportData[filePath]` (provided in the input JSON), create an `imports` edge from the current file node to `file:<resolvedPath>`. The `batchImportData` values contain only resolved project-internal paths — external packages have already been filtered out. Do NOT attempt to re-resolve imports from source.
+**Import edge creation rule for code files (1:1 emission, NO aggregation):**
+
+For every code file in this batch:
+
+1. Read its `batchImportData[filePath]` array (provided in the input JSON).
+2. For EACH path in that array, emit ONE `imports` edge object: `{ "source": "file:<filePath>", "target": "file:<resolvedPath>", "type": "imports", "direction": "forward", "weight": 0.7 }`.
+3. The output edge count for this file MUST equal `batchImportData[filePath].length`. Not 90% of it. Not "the meaningful ones". All of them.
+
+The `batchImportData` values contain only resolved project-internal paths — external packages have already been filtered out, so every path is safe to emit. Do NOT attempt to re-resolve imports from source. Do NOT skip imports because the target lives in another batch (cross-batch references are explicitly allowed for `imports` edges, since the project-scanner already verified the path exists).
+
+**Self-check before writing the batch JSON:** sum `batchImportData[file].length` across every code file in your batch. The number of `imports` edges in your output MUST equal that sum. If it doesn't, you dropped some during enumeration — go back and add them. (A deterministic post-processing pass in `merge-batch-graphs.py` will recover anything you still miss, but it is your job to get this right at emission time so the recovery report stays empty.)
 
 **Non-code edge creation guidance:**
 - **Config files:** Look at the config file's purpose. `tsconfig.json` configures all `.ts` files; `package.json` configures the build. Create `configures` edges to the most relevant entry points or directories.
