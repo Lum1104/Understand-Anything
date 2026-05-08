@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { validateGraph } from "@understand-anything/core/schema";
 import type { GraphIssue } from "@understand-anything/core/schema";
 import { useDashboardStore } from "./store";
@@ -122,6 +123,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
   const setDomainGraph = useDashboardStore((s) => s.setDomainGraph);
   const layoutIssues = useDashboardStore((s) => s.layoutIssues);
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   // Schema issues + ELK layout issues share the WarningBanner — graph-load
   // problems and dashboard rendering problems are equally surfaced.
   const allIssues = useMemo(
@@ -370,7 +372,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
                 : "text-text-muted hover:text-text-primary hover:bg-elevated"
             }`}
           >
-            {tab === "info" ? "Info" : "Files"}
+            {tab === "info" ? t("app.info") : t("app.files")}
           </button>
         ))}
       </div>
@@ -421,7 +423,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
                       : "text-text-muted hover:text-text-secondary"
                   }`}
                 >
-                  Domain
+                  {t("app.domain")}
                 </button>
                 <button
                   type="button"
@@ -433,7 +435,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
                       : "text-text-muted hover:text-text-secondary"
                   }`}
                 >
-                  Structural
+                  {t("app.structural")}
                 </button>
               </div>
             </>
@@ -503,7 +505,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
                 d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
               />
             </svg>
-            <span className="hidden md:inline">Path</span>
+            <span className="hidden md:inline">{t("app.path")}</span>
           </button>
           <ThemePicker />
           <LanguagePicker />
@@ -556,7 +558,7 @@ function Dashboard({ accessToken }: { accessToken: string }) {
             <GraphView />
           )}
           <div className="absolute top-3 right-3 text-sm text-text-muted/60 pointer-events-none select-none">
-            Press <kbd className="kbd">?</kbd> for keyboard shortcuts
+            {t("app.keyboardShortcuts")}
           </div>
         </div>
 
