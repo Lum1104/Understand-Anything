@@ -24,7 +24,8 @@
     "next": "下一步",
     "finish": "完成",
     "step": "步",
-    "steps": "步"
+    "steps": "步",
+    "tour": "导览"
   },
   "nodeInfo": {
     "selectNode": "选择一个节点查看详情",

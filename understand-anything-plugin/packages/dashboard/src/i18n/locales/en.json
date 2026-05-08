@@ -24,7 +24,8 @@
     "next": "Next",
     "finish": "Finish",
     "step": "step",
-    "steps": "steps"
+    "steps": "steps",
+    "tour": "Tour"
   },
   "nodeInfo": {
     "selectNode": "Select a node to see details",

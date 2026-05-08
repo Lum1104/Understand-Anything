@@ -1,8 +1,10 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import { useTranslation } from "react-i18next";
 import { useDashboardStore } from "../store";
 
 export default function LearnPanel() {
+  const { t } = useTranslation();
   const graph = useDashboardStore((s) => s.graph);
   const tourActive = useDashboardStore((s) => s.tourActive);
   const currentTourStep = useDashboardStore((s) => s.currentTourStep);
@@ -25,9 +27,9 @@ export default function LearnPanel() {
       <div className="h-full w-full flex items-center justify-center">
         <div className="text-center px-4">
           <div className="text-2xl mb-2 text-text-muted">&#x1f9ed;</div>
-          <p className="text-text-muted text-sm">No tour available</p>
+          <p className="text-text-muted text-sm">{t("tour.noTourAvailable")}</p>
           <p className="text-text-muted text-xs mt-1">
-            Generate a tour from your knowledge graph to get a guided walkthrough
+            {t("tour.generateTour")}
           </p>
         </div>
       </div>
@@ -39,9 +41,9 @@ export default function LearnPanel() {
     return (
       <div className="h-full w-full overflow-auto p-5">
         <div className="mb-4">
-          <h2 className="text-lg font-serif text-text-primary mb-1">Project Tour</h2>
+          <h2 className="text-lg font-serif text-text-primary mb-1">{t("tour.projectTour")}</h2>
           <p className="text-xs text-text-muted">
-            {tourSteps.length} steps &middot; Guided walkthrough of the codebase
+            {tourSteps.length} {tourSteps.length === 1 ? t("tour.step") : t("tour.steps")} &middot; {t("tour.guidedWalkthrough")}
           </p>
         </div>
 
@@ -49,12 +51,12 @@ export default function LearnPanel() {
           onClick={startTour}
           className="w-full mb-4 bg-accent/10 border border-accent/30 text-accent text-sm font-medium py-2.5 px-4 rounded-lg hover:bg-accent/20 transition-colors"
         >
-          Start Tour
+          {t("tour.startTour")}
         </button>
 
         <div className="space-y-2">
           <h3 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-2">
-            Steps
+            {t("tour.steps")}
           </h3>
           {tourSteps.map((step, i) => (
             <div
@@ -87,7 +89,7 @@ export default function LearnPanel() {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="text-[11px] font-semibold text-accent uppercase tracking-wider">
-            Tour
+            {t("tour.tour")}
           </h3>
           <span className="text-xs text-text-muted">
             {currentTourStep + 1} / {totalSteps}
@@ -97,7 +99,7 @@ export default function LearnPanel() {
           onClick={stopTour}
           className="text-[10px] text-text-muted hover:text-text-secondary transition-colors"
         >
-          Exit Tour
+          {t("tour.exitTour")}
         </button>
       </div>
 
@@ -156,7 +158,7 @@ export default function LearnPanel() {
         {step.languageLesson && (
           <div className="bg-accent/5 border border-accent/20 rounded p-3 mb-4">
             <h4 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-1.5">
-              Language Lesson
+              {t("tour.languageLesson")}
             </h4>
             <p className="text-sm text-text-secondary leading-relaxed">
               {step.languageLesson}
@@ -168,7 +170,7 @@ export default function LearnPanel() {
         {step.nodeIds.length > 0 && (
           <div className="mb-4">
             <h4 className="text-[11px] font-semibold text-accent uppercase tracking-wider mb-2">
-              Referenced Components
+              {t("tour.referencedComponents")}
             </h4>
             <div className="flex flex-wrap gap-1.5">
               {step.nodeIds.map((nodeId) => {
@@ -213,13 +215,13 @@ export default function LearnPanel() {
             disabled={isFirst}
             className="flex-1 text-xs bg-elevated text-text-secondary py-1.5 rounded-lg hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Prev
+            {t("tour.prev")}
           </button>
           <button
             onClick={isLast ? stopTour : nextTourStep}
             className="flex-1 text-xs bg-accent/10 border border-accent/30 text-accent py-1.5 rounded-lg hover:bg-accent/20 transition-colors"
           >
-            {isLast ? "Finish" : "Next"}
+            {isLast ? t("tour.finish") : t("tour.next")}
           </button>
         </div>
       </div>
