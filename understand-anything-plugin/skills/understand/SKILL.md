@@ -696,13 +696,14 @@ Pass these parameters in the dispatch prompt:
 
    Write and execute a Node.js script that uses the core fingerprint module (tree-sitter-based, not regex):
    ```javascript
-   import { buildFingerprintStore } from '@understand-anything/core';
-   import { saveFingerprints } from '@understand-anything/core';
+   import { buildFingerprintStore, saveFingerprints } from '@understand-anything/core';
 
    const store = await buildFingerprintStore('<PROJECT_ROOT>', sourceFilePaths);
    saveFingerprints('<PROJECT_ROOT>', store);
    ```
    Where `sourceFilePaths` is the list of all analyzed source file paths from Phase 1. This uses the same tree-sitter analysis pipeline as the main fingerprint engine, ensuring the baseline matches the comparison logic used during auto-updates.
+
+   The 2-argument form is the supported standalone path: `buildFingerprintStore` auto-creates a `PluginRegistry`, registers all built-in parsers + the tree-sitter plugin (10 code languages), and resolves the git commit hash via `git rev-parse HEAD` inside `<PROJECT_ROOT>`. If you need full control (custom registry, explicit commit hash for a CI scenario), pass them as the 3rd and 4th args.
 
 3. Clean up intermediate files:
    ```bash

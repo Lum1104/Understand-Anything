@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { execSync } from "node:child_process";
 import type { StructuralAnalysis } from "./types.js";
-import type { PluginRegistry } from "./plugins/registry.js";
+import { PluginRegistry } from "./plugins/registry.js";
+import { registerAllParsers } from "./plugins/parsers/index.js";
+import { TreeSitterPlugin } from "./plugins/tree-sitter-plugin.js";
+import { builtinLanguageConfigs } from "./languages/configs/index.js";
 
 // ---- Fingerprint types ----
 
@@ -249,13 +253,27 @@ export function compareFingerprints(
  * Build a fingerprint store for a set of files.
  * Files without tree-sitter support get content-hash-only fingerprints
  * (conservative: any change is treated as STRUCTURAL).
+ *
+ * `registry` and `gitCommitHash` are optional. When omitted, a default registry
+ * is constructed with all built-in non-code parsers AND the tree-sitter plugin
+ * (10 code languages) registered, and the commit hash is resolved by running
+ * `git rev-parse HEAD` in `projectDir`. This lets the standalone
+ * fingerprint-regen step in `/understand` Phase 7 work as a one-liner without
+ * the caller having to wire up plugins themselves.
+ *
+ * Pass an explicit `registry` (even empty) when you want exact control over
+ * which plugins are loaded — auto-registration only happens when the registry
+ * has zero plugins.
  */
-export function buildFingerprintStore(
+export async function buildFingerprintStore(
   projectDir: string,
   filePaths: string[],
-  registry: PluginRegistry,
-  gitCommitHash: string,
-): FingerprintStore {
+  registry?: PluginRegistry,
+  gitCommitHash?: string,
+): Promise<FingerprintStore> {
+  const effectiveRegistry = await resolveRegistry(registry);
+  const effectiveCommitHash = gitCommitHash ?? resolveGitCommitHash(projectDir);
+
   const files: Record<string, FileFingerprint> = {};
 
   for (const filePath of filePaths) {
@@ -263,7 +281,7 @@ export function buildFingerprintStore(
     if (!existsSync(absolutePath)) continue;
 
     const content = readFileSync(absolutePath, "utf-8");
-    const analysis = registry.analyzeFile(filePath, content);
+    const analysis = effectiveRegistry.analyzeFile(filePath, content);
 
     if (analysis) {
       files[filePath] = extractFileFingerprint(filePath, content, analysis);
@@ -284,10 +302,48 @@ export function buildFingerprintStore(
 
   return {
     version: "1.0.0",
-    gitCommitHash,
+    gitCommitHash: effectiveCommitHash,
     generatedAt: new Date().toISOString(),
     files,
   };
+}
+
+/**
+ * Resolve a usable PluginRegistry. If the caller provided a non-empty registry,
+ * return it untouched. Otherwise create (or populate) one with every built-in
+ * non-code parser and the tree-sitter plugin for the 10 supported code
+ * languages, initializing tree-sitter WASM grammars.
+ */
+async function resolveRegistry(
+  provided: PluginRegistry | undefined,
+): Promise<PluginRegistry> {
+  const registry = provided ?? new PluginRegistry();
+  if (registry.getPlugins().length > 0) return registry;
+
+  registerAllParsers(registry);
+
+  const treeSitter = new TreeSitterPlugin(builtinLanguageConfigs);
+  await treeSitter.init();
+  registry.register(treeSitter);
+
+  return registry;
+}
+
+/**
+ * Best-effort git commit hash lookup. Returns `"unknown"` on any failure
+ * (project is not a git repo, git is not installed, the call fails, etc.).
+ */
+function resolveGitCommitHash(projectDir: string): string {
+  try {
+    return execSync("git rev-parse HEAD", {
+      cwd: projectDir,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return "unknown";
+  }
 }
 
 /**
