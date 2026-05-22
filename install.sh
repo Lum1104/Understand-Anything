@@ -28,7 +28,6 @@ PLUGIN_LINK="$HOME/.understand-anything-plugin"
 #                    named "understand-anything"
 platforms_table() {
   cat <<EOF
-gemini|$HOME/.agents/skills|per-skill
 codex|$HOME/.agents/skills|per-skill
 opencode|$HOME/.agents/skills|per-skill
 pi|$HOME/.agents/skills|per-skill

@@ -2,7 +2,7 @@
 <p align="center">
   <strong>將任意程式碼庫、知識庫或文件轉化為可探索、可搜尋、可對話的互動式知識圖譜</strong>
   <br />
-  <em>支援 Claude Code、Codex、Cursor、Copilot、Gemini CLI 等多平台。</em>
+  <em>支援 Claude Code、Codex、Cursor、Copilot、Antigravity CLI 等多平台。</em>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
   <a href="#codex"><img src="https://img.shields.io/badge/Codex-000000" alt="Codex" /></a>
   <a href="#vs-code--github-copilot"><img src="https://img.shields.io/badge/Copilot-24292e" alt="Copilot" /></a>
   <a href="#copilot-cli"><img src="https://img.shields.io/badge/Copilot_CLI-24292e" alt="Copilot CLI" /></a>
-  <a href="#gemini-cli"><img src="https://img.shields.io/badge/Gemini_CLI-4285F4" alt="Gemini CLI" /></a>
+  <a href="#antigravity-cli"><img src="https://img.shields.io/badge/Antigravity_CLI-4285F4" alt="Antigravity CLI" /></a>
   <a href="#opencode"><img src="https://img.shields.io/badge/OpenCode-38bdf8" alt="OpenCode" /></a>
   <a href="https://understand-anything.com"><img src="https://img.shields.io/badge/專案首頁-d4a574" alt="Homepage" /></a>
   <a href="https://understand-anything.com/demo/"><img src="https://img.shields.io/badge/線上展示-00c853" alt="Live Demo" /></a>
@@ -168,7 +168,7 @@ Understand-Anything 可在多個 AI 編碼平台上執行。
 /plugin install understand-anything
 ```
 
-### 一行指令安裝（Codex / OpenCode / OpenClaw / Antigravity / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI）
+### 一行指令安裝（Codex / OpenCode / OpenClaw / Antigravity / Antigravity CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI）
 
 **macOS / Linux：**
 ```bash
@@ -184,7 +184,7 @@ iwr -useb https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/ins
 
 安裝指令稿會將儲存庫複製到 `~/.understand-anything/repo`，並為所選平台建立相應的符號連結。安裝完成後請重新啟動 CLI 或 IDE。
 
-- 支援的 `<platform>` 取值：`gemini`、`codex`、`opencode`、`pi`、`openclaw`、`antigravity`、`vibe`、`vscode`、`hermes`、`cline`、`kimi`
+- 支援的 `<platform>` 取值：`antigravity`、`codex`、`opencode`、`pi`、`openclaw`、`vibe`、`vscode`、`hermes`、`cline`、`kimi`
 - 後續更新：`./install.sh --update`
 - 解除安裝：`./install.sh --uninstall <platform>`
 
@@ -216,7 +216,7 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | OpenCode | ✅ 支援 | `install.sh opencode` |
 | OpenClaw | ✅ 支援 | `install.sh openclaw` |
 | Antigravity | ✅ 支援 | `install.sh antigravity` |
-| Gemini CLI | ✅ 支援 | `install.sh gemini` |
+| Antigravity CLI | ✅ 支援 | `install.sh antigravity` |
 | Pi Agent | ✅ 支援 | `install.sh pi` |
 | Vibe CLI | ✅ 支援 | `install.sh vibe` |
 | Hermes | ✅ 支援 | `install.sh hermes` |
