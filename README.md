@@ -201,8 +201,12 @@ iwr -useb https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/ins
 The installer clones the repo to `~/.understand-anything/repo` and creates the right symlinks for the chosen platform. Restart your CLI/IDE afterwards.
 
 - Supported `<platform>` values: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `trae`
-- Update later: `./install.sh --update`
-- Uninstall: `./install.sh --uninstall <platform>`
+- Update later:
+  - macOS / Linux: `./install.sh --update`
+  - Windows: `& "$HOME/.understand-anything/repo/install.ps1" -Update`
+- Uninstall:
+  - macOS / Linux: `./install.sh --uninstall <platform>`
+  - Windows: `& "$HOME/.understand-anything/repo/install.ps1" -Uninstall <platform>`
 
 ### Cursor
 
