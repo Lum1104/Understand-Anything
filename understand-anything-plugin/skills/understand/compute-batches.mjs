@@ -196,7 +196,7 @@ function buildBatchOfMap(allBatches) {
  */
 function runLouvain(codeFiles, importMap) {
   if (process.env.UA_COMPUTE_BATCHES_FORCE_LOUVAIN_THROW === '1') {
-    throw new Error('forced throw for test');
+    throw new Error('forced throw via UA_COMPUTE_BATCHES_FORCE_LOUVAIN_THROW');
   }
   const g = new Graph({ type: 'undirected', allowSelfLoops: false });
   for (const f of codeFiles) g.addNode(f.path);
@@ -224,7 +224,7 @@ function countBasedAssignment(codeFiles, batchSize = 12) {
   return out;
 }
 
-// ── Skeleton main: load → Louvain → print sizes ───────────────────────────
+// ── Main: load → Louvain (or count-fallback) → enrich → write batches.json ─
 async function main() {
   const projectRoot = process.argv[2];
   if (!projectRoot) {
