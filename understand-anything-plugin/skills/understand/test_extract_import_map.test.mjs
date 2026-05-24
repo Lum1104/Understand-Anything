@@ -660,6 +660,71 @@ describe('extract-import-map.mjs — C/C++ resolver', () => {
   });
 });
 
+describe('extract-import-map.mjs — per-file failure resilience', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('continues processing when a file is missing from disk', () => {
+    // Build a project with one real file and one declared-but-missing file.
+    // The missing file is still in the input list (the project-scanner
+    // discovered it before something deleted it), so the resolver must
+    // emit a Warning: line and set importMap[<missing>] = [] without
+    // aborting the whole script.
+    projectRoot = setupTree({
+      'src/real.ts': `import { thing } from './other';\nexport const x = 1;\n`,
+      'src/other.ts': `export const thing = 1;\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/real.ts', language: 'typescript', fileCategory: 'code' },
+        { path: 'src/other.ts', language: 'typescript', fileCategory: 'code' },
+        // Declared but does not exist on disk
+        { path: 'src/missing.ts', language: 'typescript', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // Script completed cleanly
+    expect(result.output.scriptCompleted).toBe(true);
+    // Real files resolved
+    expect(result.output.importMap['src/real.ts']).toEqual(['src/other.ts']);
+    expect(result.output.importMap['src/other.ts']).toEqual([]);
+    // Missing file is in importMap with []
+    expect(result.output.importMap['src/missing.ts']).toEqual([]);
+    // A warning was emitted on stderr for the missing file
+    expect(result.stderr).toMatch(/Warning: extract-import-map: import resolution failed for src\/missing\.ts/);
+    expect(result.stderr).toMatch(/importMap\[src\/missing\.ts\]=\[\]/);
+  });
+
+  it('emits a stats summary on stderr', () => {
+    projectRoot = setupTree({
+      'a.ts': `import { b } from './b';\n`,
+      'b.ts': `export const b = 1;\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'a.ts', language: 'typescript', fileCategory: 'code' },
+        { path: 'b.ts', language: 'typescript', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toMatch(
+      /extract-import-map: filesScanned=2 filesWithImports=1 totalEdges=1/,
+    );
+  });
+});
+
 describe('extract-import-map.mjs — output schema invariants', () => {
   let projectRoot;
 
