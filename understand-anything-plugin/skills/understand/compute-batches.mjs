@@ -237,7 +237,16 @@ async function main() {
     const m = arg.match(/^--changed-files=(.+)$/);
     if (m) {
       const p = m[1];
-      const lines = readFileSync(p, 'utf-8')
+      let content;
+      try {
+        content = readFileSync(p, 'utf-8');
+      } catch (err) {
+        process.stderr.write(
+          `Error: compute-batches: --changed-files path not readable: ${p} (${err.message})\n`,
+        );
+        process.exit(1);
+      }
+      const lines = content
         .split('\n')
         .map(s => s.trim())
         .filter(Boolean);
@@ -411,6 +420,10 @@ async function main() {
     // full-graph batchIndex). No renumbering.
   }
 
+  // Note: under --changed-files mode, totalFiles is the FULL project file
+  // count (unchanged from the input scan) while totalBatches reflects only
+  // the filtered set written to disk. batchIndex values on the kept batches
+  // preserve the full-graph assignment so neighborMap references resolve.
   const output = {
     schemaVersion: 1,
     algorithm,
@@ -422,11 +435,11 @@ async function main() {
 
   const outPath = join(projectRoot, '.understand-anything', 'intermediate', 'batches.json');
   writeFileSync(outPath, JSON.stringify(output, null, 2), 'utf-8');
-  const batchSizes = batches.map(b => b.files.length);
+  const batchSizes = finalBatches.map(b => b.files.length);
   const maxSize = batchSizes.length ? Math.max(...batchSizes) : 0;
   const minSize = batchSizes.length ? Math.min(...batchSizes) : 0;
   process.stderr.write(
-    `Wrote ${batches.length} batches (sizes: max=${maxSize}, min=${minSize}) to ${outPath}\n`,
+    `Wrote ${finalBatches.length} batches (sizes: max=${maxSize}, min=${minSize}) to ${outPath}\n`,
   );
 }
 
