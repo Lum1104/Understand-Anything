@@ -223,12 +223,21 @@ function buildResolutionContext(projectRoot, files) {
     arr.sort((a, b) => a.localeCompare(b));
   }
 
+  // Build per-extension suffix indices for dotted-FQN resolvers (Java,
+  // Kotlin, C#). Indexed once; reused for every import dispatch.
+  const javaIndex = buildSuffixIndex(files, p => p.endsWith('.java'));
+  const kotlinIndex = buildSuffixIndex(files, p => p.endsWith('.kt'));
+  const csIndex = buildSuffixIndex(files, p => p.endsWith('.cs'));
+
   return {
     projectRoot,
     fileSet,
     tsConfig,
     goModule,
     goFilesByDir,
+    javaIndex,
+    kotlinIndex,
+    csIndex,
     // Filled in by later commits as more languages come online
     phpAutoload: new Map(),
   };
@@ -359,6 +368,25 @@ function extractRequireSources(content) {
   REQUIRE_LITERAL_RE.lastIndex = 0;
   while ((m = REQUIRE_LITERAL_RE.exec(content)) !== null) {
     sources.push(m[2]);
+  }
+  return sources;
+}
+
+/**
+ * Kotlin has no tree-sitter extractor in this project, so we collect its
+ * import sources via a focused regex pass. Kotlin imports are syntactically
+ * simple: one per line, `import x.y.Z` or `import x.y.Z as Alias` (or
+ * `import x.y.*` for star imports). We capture the dotted FQN and let the
+ * dotted resolver classify wildcards.
+ */
+const KOTLIN_IMPORT_RE = /^\s*import\s+([\w.*]+)(?:\s+as\s+\w+)?\s*$/gm;
+
+function extractKotlinSources(content) {
+  const sources = [];
+  let m;
+  KOTLIN_IMPORT_RE.lastIndex = 0;
+  while ((m = KOTLIN_IMPORT_RE.exec(content)) !== null) {
+    sources.push(m[1]);
   }
   return sources;
 }
@@ -512,6 +540,105 @@ export function resolveGoImport(rawImport, _file, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Dotted-package resolver (Java / Kotlin / C#)
+//
+// Shared logic: an import like `com.example.foo.Bar` maps to a file
+// `**/com/example/foo/Bar.<ext>` in the project. Many JVM/CLR projects nest
+// sources under `src/main/java/`, `src/main/kotlin/`, etc., so the resolver
+// must search for any file whose suffix matches the dotted-path-as-file form.
+//
+// We pre-build an index: trailing-slash-suffix -> matching project paths.
+// Indexing once is O(files * average_segments); per-import lookup is then
+// effectively O(1) hash lookup + scan of the bucket.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an index of all files for a given extension, keyed by their
+ * "package-path suffix" form. For each file `src/main/java/com/x/Y.java`,
+ * the index gets entries for every suffix that ends at a `/`:
+ *   - 'com/x/Y.java'
+ *   - 'x/Y.java'
+ *   - 'Y.java'
+ * keyed off each successively-shorter suffix.
+ *
+ * Using a Map<suffix, string[]> avoids per-import full table scans; a 50K-file
+ * monorepo with deep package nesting still resolves O(1) per import.
+ */
+function buildSuffixIndex(files, extPredicate) {
+  const idx = new Map();
+  for (const f of files) {
+    const p = toPosix(f.path);
+    if (!extPredicate(p)) continue;
+    // Generate every "directory-bounded suffix" of the path
+    const parts = p.split('/');
+    for (let i = 0; i < parts.length; i++) {
+      const suffix = parts.slice(i).join('/');
+      if (!idx.has(suffix)) idx.set(suffix, []);
+      idx.get(suffix).push(p);
+    }
+  }
+  // Deterministic order within each bucket
+  for (const arr of idx.values()) {
+    arr.sort((a, b) => a.localeCompare(b));
+  }
+  return idx;
+}
+
+/**
+ * Resolve a dotted-import to a file. `fqn` is the qualified name
+ * (`com.example.Foo`); `ext` is the file extension to probe (`.java`,
+ * `.kt`, `.cs`). Wildcards (e.g. `com.example.*`) and the trailing `*` in
+ * Java's `com.example.*` are stripped before resolution — there is no good
+ * single-file resolution for wildcards, so we drop them. (Tree-sitter
+ * already exposes `*` as a specifier; the source field strips it.)
+ *
+ * Returns array (most cases: 0 or 1 match; multiple if the same suffix
+ * appears in multiple source roots).
+ */
+function resolveDottedFqn(fqn, ext, suffixIndex) {
+  if (!fqn || typeof fqn !== 'string') return [];
+  // Strip trailing wildcard segments like `com.example.*`
+  const trimmed = fqn.replace(/\.\*$/, '');
+  if (!trimmed) return [];
+  const filePart = trimmed.replace(/\./g, '/') + ext;
+  const matches = suffixIndex.get(filePart);
+  return matches ? [...matches] : [];
+}
+
+// ---------------------------------------------------------------------------
+// Java resolver
+// ---------------------------------------------------------------------------
+
+export function resolveJavaImport(rawImport, _file, ctx) {
+  return resolveDottedFqn(rawImport, '.java', ctx.javaIndex);
+}
+
+// ---------------------------------------------------------------------------
+// Kotlin resolver
+//
+// Kotlin has no tree-sitter extractor in this project, so its import sources
+// are collected via a focused regex pass in extractExtraImportSources(); the
+// resolver itself is identical-shape to Java.
+// ---------------------------------------------------------------------------
+
+export function resolveKotlinImport(rawImport, _file, ctx) {
+  return resolveDottedFqn(rawImport, '.kt', ctx.kotlinIndex);
+}
+
+// ---------------------------------------------------------------------------
+// C# resolver
+//
+// C# `using Foo.Bar;` declarations are typically NAMESPACES, not files, and
+// the C# convention is namespace = directory (loose). Tree-sitter's C#
+// extractor captures these as imports with the dotted source. We probe the
+// dotted path against the .cs index the same way Java/Kotlin do.
+// ---------------------------------------------------------------------------
+
+export function resolveCSharpImport(rawImport, _file, ctx) {
+  return resolveDottedFqn(rawImport, '.cs', ctx.csIndex);
+}
+
+// ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
 
@@ -546,6 +673,15 @@ function resolveImport(imp, file, ctx) {
   if (lang === 'go') {
     return resolveGoImport(src, file, ctx);
   }
+  if (lang === 'java') {
+    return resolveJavaImport(src, file, ctx);
+  }
+  if (lang === 'kotlin') {
+    return resolveKotlinImport(src, file, ctx);
+  }
+  if (lang === 'csharp') {
+    return resolveCSharpImport(src, file, ctx);
+  }
   // Other languages handled in later commits
   return [];
 }
@@ -558,6 +694,9 @@ function resolveImport(imp, file, ctx) {
 function extractExtraImportSources(file, content) {
   if (TS_JS_LANGS.has(file.language)) {
     return extractRequireSources(content);
+  }
+  if (file.language === 'kotlin') {
+    return extractKotlinSources(content);
   }
   return [];
 }

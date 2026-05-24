@@ -312,6 +312,139 @@ describe('extract-import-map.mjs — Go resolver', () => {
   });
 });
 
+describe('extract-import-map.mjs — Java resolver', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('resolves java dotted imports via suffix probe', () => {
+    projectRoot = setupTree({
+      'src/main/java/com/example/App.java':
+        `package com.example;\n\nimport com.example.foo.Bar;\nimport com.example.util.Helper;\n\npublic class App { }\n`,
+      'src/main/java/com/example/foo/Bar.java':
+        `package com.example.foo;\n\npublic class Bar { }\n`,
+      'src/main/java/com/example/util/Helper.java':
+        `package com.example.util;\n\npublic class Helper { }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/main/java/com/example/App.java', language: 'java', fileCategory: 'code' },
+        { path: 'src/main/java/com/example/foo/Bar.java', language: 'java', fileCategory: 'code' },
+        { path: 'src/main/java/com/example/util/Helper.java', language: 'java', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output.importMap['src/main/java/com/example/App.java']).toEqual([
+      'src/main/java/com/example/foo/Bar.java',
+      'src/main/java/com/example/util/Helper.java',
+    ]);
+  });
+
+  it('drops java external imports (java.util, etc.)', () => {
+    projectRoot = setupTree({
+      'src/x/App.java':
+        `package x;\nimport java.util.List;\nimport java.io.IOException;\nimport x.Local;\npublic class App { }\n`,
+      'src/x/Local.java':
+        `package x;\npublic class Local { }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/x/App.java', language: 'java', fileCategory: 'code' },
+        { path: 'src/x/Local.java', language: 'java', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // java.util/java.io are external (no project file matches the suffix);
+    // x.Local maps via suffix to src/x/Local.java.
+    expect(result.output.importMap['src/x/App.java']).toEqual(['src/x/Local.java']);
+  });
+});
+
+describe('extract-import-map.mjs — Kotlin resolver', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('resolves kotlin dotted imports via suffix probe', () => {
+    projectRoot = setupTree({
+      'src/main/kotlin/com/example/Main.kt':
+        `package com.example\n\nimport com.example.foo.Bar\nimport com.example.util.Helper\n\nfun main() { }\n`,
+      'src/main/kotlin/com/example/foo/Bar.kt':
+        `package com.example.foo\n\nclass Bar\n`,
+      'src/main/kotlin/com/example/util/Helper.kt':
+        `package com.example.util\n\nobject Helper\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/main/kotlin/com/example/Main.kt', language: 'kotlin', fileCategory: 'code' },
+        { path: 'src/main/kotlin/com/example/foo/Bar.kt', language: 'kotlin', fileCategory: 'code' },
+        { path: 'src/main/kotlin/com/example/util/Helper.kt', language: 'kotlin', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output.importMap['src/main/kotlin/com/example/Main.kt']).toEqual([
+      'src/main/kotlin/com/example/foo/Bar.kt',
+      'src/main/kotlin/com/example/util/Helper.kt',
+    ]);
+  });
+});
+
+describe('extract-import-map.mjs — C# resolver', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('resolves c# using directives via dotted-suffix probe', () => {
+    projectRoot = setupTree({
+      'Program.cs':
+        `using System;\nusing MyApp.Util.Helper;\nusing MyApp.Models.User;\n\nnamespace MyApp { class Program { } }\n`,
+      'MyApp/Util/Helper.cs':
+        `namespace MyApp.Util { public class Helper { } }\n`,
+      'MyApp/Models/User.cs':
+        `namespace MyApp.Models { public class User { } }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'Program.cs', language: 'csharp', fileCategory: 'code' },
+        { path: 'MyApp/Util/Helper.cs', language: 'csharp', fileCategory: 'code' },
+        { path: 'MyApp/Models/User.cs', language: 'csharp', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output.importMap['Program.cs']).toEqual([
+      'MyApp/Models/User.cs',
+      'MyApp/Util/Helper.cs',
+    ]);
+  });
+});
+
 describe('extract-import-map.mjs — output schema invariants', () => {
   let projectRoot;
 
