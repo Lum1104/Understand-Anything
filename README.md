@@ -133,6 +133,8 @@ The `--language` parameter affects:
 
 ### 3. Explore the dashboard
 
+> **Note:** If Claude Code doesn't recognize `/understand-dashboard` (or any other `/understand-*` command), run `/reload-plugins` once to pick up the newly installed plugin in your current session.
+
 ```bash
 /understand-dashboard
 ```
