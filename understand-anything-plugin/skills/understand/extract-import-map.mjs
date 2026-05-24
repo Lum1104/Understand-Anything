@@ -786,6 +786,172 @@ export function resolvePhpImport(rawImport, _file, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Rust resolver
+//
+// Rust's module system is path-based but the import syntax is `use` rather
+// than path strings. Tree-sitter emits sources like `crate::a::b::Item`,
+// `super::a::Item`, `self::a`, or bare `std::collections::HashMap`. We map
+// only those rooted at `crate::` or `super::` — bare paths are external
+// crates.
+//
+// Resolution heuristics:
+//   - `crate::a::b::*` -> probe `<crate-root>/a/b.rs`, then
+//     `<crate-root>/a/b/mod.rs`. The crate root is `<package-dir>/src/`
+//     (Cargo convention).
+//   - `super::a::b::*` -> walk up one directory from the importer, then
+//     descend; same .rs / mod.rs probes.
+//   - `self::a::*` -> like `super::a::*` but without the walk-up.
+//
+// Rust uses won't always land on a file (an import like `crate::Foo` could
+// refer to a struct re-exported through `mod.rs`); we accept that limitation.
+//
+// We also extract `mod x;` declarations via regex — these declare submodules
+// to load and translate directly to `<importer-dir>/x.rs` or
+// `<importer-dir>/x/mod.rs`.
+// ---------------------------------------------------------------------------
+
+/**
+ * Try `<base>.rs` then `<base>/mod.rs` against the file set. Returns the
+ * first match or null.
+ */
+function probeRustModule(base, fileSet) {
+  if (!base) return null;
+  if (fileSet.has(`${base}.rs`)) return `${base}.rs`;
+  if (fileSet.has(`${base}/mod.rs`)) return `${base}/mod.rs`;
+  return null;
+}
+
+/**
+ * Find the "crate root" directory for a Rust importer. By Cargo convention,
+ * this is the directory containing `src/lib.rs` or `src/main.rs`. For nested
+ * workspaces, walk up from the importer until a `src/` ancestor is found.
+ * Returns the path relative to project root, or null if not found.
+ */
+function findRustCrateSrc(importerDir, fileSet) {
+  // Walk up the importer's directory chain, looking for a `src` segment
+  // that contains lib.rs or main.rs.
+  const parts = importerDir.split('/').filter(Boolean);
+  for (let i = parts.length; i >= 0; i--) {
+    const candidate = parts.slice(0, i).join('/');
+    // candidate ends at any path level; check if it ends with 'src' OR has
+    // an immediate child src/ that contains the crate roots.
+    if (parts[i - 1] === 'src') {
+      if (fileSet.has(`${candidate}/lib.rs`) || fileSet.has(`${candidate}/main.rs`)) {
+        return candidate;
+      }
+    }
+    // Also probe candidate+'/src'
+    const childSrc = candidate ? `${candidate}/src` : 'src';
+    if (fileSet.has(`${childSrc}/lib.rs`) || fileSet.has(`${childSrc}/main.rs`)) {
+      return childSrc;
+    }
+  }
+  return null;
+}
+
+export function resolveRustImport(rawImport, file, ctx) {
+  if (!rawImport || typeof rawImport !== 'string') return [];
+  const src = rawImport.trim();
+  if (!src) return [];
+
+  const importerDir = dirOf(toPosix(file.path));
+  const segments = src.split('::').filter(Boolean);
+  if (segments.length === 0) return [];
+  const head = segments[0];
+
+  // External crates: anything not rooted at crate/super/self.
+  if (head !== 'crate' && head !== 'super' && head !== 'self') return [];
+
+  // Walk segments after the head to a base file path. We probe each
+  // successive prefix from longest to shortest so that `crate::a::b::Item`
+  // matches `a/b.rs` (with `Item` being a re-export inside) rather than
+  // failing because `a/b/Item.rs` doesn't exist.
+  let baseDir;
+  if (head === 'crate') {
+    const crateSrc = findRustCrateSrc(importerDir, ctx.fileSet);
+    if (!crateSrc) return [];
+    baseDir = crateSrc;
+  } else if (head === 'super') {
+    // Walk up one directory from the importer
+    const parts = importerDir.split('/').filter(Boolean);
+    if (parts.length === 0) return [];
+    baseDir = parts.slice(0, -1).join('/');
+  } else {
+    // self::
+    baseDir = importerDir;
+  }
+
+  const rest = segments.slice(1);
+  // Try each prefix length from longest -> shortest. The empty rest case
+  // (e.g. bare `use crate;`) is unresolvable.
+  for (let i = rest.length; i > 0; i--) {
+    const prefix = rest.slice(0, i);
+    const base = baseDir
+      ? `${baseDir}/${prefix.join('/')}`
+      : prefix.join('/');
+    const match = probeRustModule(base, ctx.fileSet);
+    if (match) return [match];
+  }
+  return [];
+}
+
+/**
+ * Regex pass for Rust `mod x;` declarations. These are NOT captured by
+ * tree-sitter's import field, but they declare a child module on disk that
+ * follows the same `<dir>/x.rs` or `<dir>/x/mod.rs` convention.
+ */
+const RUST_MOD_RE = /^\s*(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+(\w+)\s*;\s*$/gm;
+
+function extractRustModSources(content) {
+  const sources = [];
+  let m;
+  RUST_MOD_RE.lastIndex = 0;
+  while ((m = RUST_MOD_RE.exec(content)) !== null) {
+    // Synthesize as a `self::<name>` source so the regular Rust resolver
+    // handles it (probes the importer's directory).
+    sources.push(`self::${m[1]}`);
+  }
+  return sources;
+}
+
+// ---------------------------------------------------------------------------
+// C / C++ resolver
+//
+// Tree-sitter's cpp extractor exposes both quoted and angle-bracket includes
+// as imports with `source` set to the bare filename (e.g. `foo.h`).
+// Quoted includes resolve relative to the importer's directory; angle
+// includes look in a system path. We can't tell quoted from angle from
+// tree-sitter alone, but the resolution rules overlap enough that probing
+// both yields the right answer most of the time:
+//   1. <importer-dir>/<source>
+//   2. include/<source>
+//   3. src/<source>
+//   4. <source> (project-root-relative)
+//
+// We probe in that order and take the first match. Multiple file extensions
+// (.h, .hpp, .hxx, .cuh) are NOT auto-appended — #include carries the
+// extension explicitly.
+// ---------------------------------------------------------------------------
+
+export function resolveCppImport(rawImport, file, ctx) {
+  if (!rawImport || typeof rawImport !== 'string') return [];
+  const src = toPosix(rawImport.trim());
+  if (!src) return [];
+  const importerDir = dirOf(toPosix(file.path));
+
+  const candidates = [
+    resolveRelative(importerDir, src),
+    `include/${src}`,
+    `src/${src}`,
+    src,
+  ];
+  for (const c of candidates) {
+    if (c && ctx.fileSet.has(c)) return [c];
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
 
@@ -832,9 +998,15 @@ function resolveImport(imp, file, ctx) {
   if (lang === 'php') {
     return resolvePhpImport(src, file, ctx);
   }
-  // Ruby is handled via the extra-sources pathway (see below) because its
-  // tree-sitter extractor flattens require vs require_relative into a
-  // single field, losing the discriminator the resolver needs.
+  if (lang === 'rust') {
+    return resolveRustImport(src, file, ctx);
+  }
+  if (lang === 'c' || lang === 'cpp') {
+    return resolveCppImport(src, file, ctx);
+  }
+  // Ruby is handled via a dedicated pathway because its tree-sitter
+  // extractor flattens require vs require_relative into a single field,
+  // losing the discriminator the resolver needs.
   return [];
 }
 
@@ -849,6 +1021,11 @@ function extractExtraImportSources(file, content) {
   }
   if (file.language === 'kotlin') {
     return extractKotlinSources(content);
+  }
+  if (file.language === 'rust') {
+    // `mod x;` declarations aren't in tree-sitter's `imports` field, but they
+    // declare submodules on disk that the rust resolver knows how to find.
+    return extractRustModSources(content);
   }
   return [];
 }

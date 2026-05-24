@@ -534,6 +534,132 @@ describe('extract-import-map.mjs — PHP resolver', () => {
   });
 });
 
+describe('extract-import-map.mjs — Rust resolver', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('resolves rust use crate:: and mod declarations', () => {
+    projectRoot = setupTree({
+      'Cargo.toml': `[package]\nname = "demo"\nversion = "0.1.0"\nedition = "2021"\n`,
+      'src/lib.rs':
+        `pub mod auth;\npub mod db;\n\nuse crate::auth::login;\nuse crate::db::query;\n\nfn boot() { login(); query(); }\n`,
+      'src/auth.rs':
+        `pub fn login() { }\n`,
+      'src/db.rs':
+        `pub fn query() { }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'src/lib.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'src/auth.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'src/db.rs', language: 'rust', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // `pub mod auth;` and `pub mod db;` declare submodules in the same dir.
+    // `use crate::auth::login;` and `use crate::db::query;` resolve via crate src.
+    expect(result.output.importMap['src/lib.rs']).toEqual([
+      'src/auth.rs',
+      'src/db.rs',
+    ]);
+  });
+
+  it('resolves rust super:: walking up one directory', () => {
+    projectRoot = setupTree({
+      'Cargo.toml': `[package]\nname = "demo"\nversion = "0.1.0"\n`,
+      'src/lib.rs': `pub mod inner;\npub mod sibling;\n`,
+      'src/sibling.rs': `pub fn hi() { }\n`,
+      'src/inner/mod.rs': `use super::sibling::hi;\nfn boot() { hi(); }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'src/lib.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'src/sibling.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'src/inner/mod.rs', language: 'rust', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output.importMap['src/inner/mod.rs']).toEqual(['src/sibling.rs']);
+  });
+});
+
+describe('extract-import-map.mjs — C/C++ resolver', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('resolves c/c++ #include probes (relative + include/ + src/)', () => {
+    projectRoot = setupTree({
+      'src/main.cpp':
+        `#include <iostream>\n#include "util.h"\n#include "helpers/log.h"\n\nint main() { return 0; }\n`,
+      'src/util.h':
+        `#ifndef UTIL_H\n#define UTIL_H\nvoid util();\n#endif\n`,
+      'src/helpers/log.h':
+        `#pragma once\nvoid log_msg(const char*);\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/main.cpp', language: 'cpp', fileCategory: 'code' },
+        { path: 'src/util.h', language: 'cpp', fileCategory: 'code' },
+        { path: 'src/helpers/log.h', language: 'cpp', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // iostream is external; util.h resolves relative to importer dir;
+    // helpers/log.h also relative.
+    expect(result.output.importMap['src/main.cpp']).toEqual([
+      'src/helpers/log.h',
+      'src/util.h',
+    ]);
+  });
+
+  it('resolves c #include via project-level include/ fallback', () => {
+    projectRoot = setupTree({
+      'src/app.c':
+        `#include "config.h"\n#include "shared.h"\n\nint main() { return 0; }\n`,
+      'include/config.h': `#pragma once\n`,
+      'src/shared.h': `#pragma once\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/app.c', language: 'c', fileCategory: 'code' },
+        { path: 'include/config.h', language: 'c', fileCategory: 'code' },
+        { path: 'src/shared.h', language: 'c', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output.importMap['src/app.c']).toEqual([
+      'include/config.h',
+      'src/shared.h',
+    ]);
+  });
+});
+
 describe('extract-import-map.mjs — output schema invariants', () => {
   let projectRoot;
 
