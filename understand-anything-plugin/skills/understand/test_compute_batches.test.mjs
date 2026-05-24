@@ -486,6 +486,44 @@ describe('compute-batches.mjs — fallback', () => {
   });
 });
 
+describe('compute-batches.mjs — merge-small', () => {
+  let projectRoot;
+
+  beforeEach(() => {
+    projectRoot = setupProject('scan-result-singletons.json');
+  });
+
+  afterEach(() => {
+    if (projectRoot) rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('merges 100 isolated singletons into a small number of misc batches', () => {
+    const result = runScript(projectRoot);
+    expect(result.status).toBe(0);
+
+    const batches = readBatches(projectRoot);
+    expect(batches.totalFiles).toBe(100);
+
+    // Without merge: 100 singletons → 100 batches.
+    // With merge-small (MAX_MERGE_TARGET=25): 100 / 25 = 4 misc batches.
+    expect(batches.batches.length).toBeLessThanOrEqual(8);
+    expect(batches.batches.length).toBeGreaterThanOrEqual(4);
+
+    // All files accounted for
+    const totalAssigned = batches.batches.reduce((sum, b) => sum + b.files.length, 0);
+    expect(totalAssigned).toBe(100);
+
+    // Each batch (except potentially the last) should be ≤ MAX_MERGE_TARGET=25
+    for (const b of batches.batches) {
+      expect(b.files.length).toBeLessThanOrEqual(25);
+    }
+
+    // Warning emitted
+    expect(result.stderr).toMatch(
+      /Warning: compute-batches: merged \d+ small batches \(\d+ files\) into \d+ misc batches/);
+  });
+});
+
 describe('compute-batches.mjs — --changed-files', () => {
   let root;
 

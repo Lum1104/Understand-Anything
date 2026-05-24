@@ -89,7 +89,11 @@ async function extractExports(projectRoot, codeFiles) {
 
 /**
  * Build batches for non-code files per Groups A-E in the design spec.
- * Returns Array<{ files: FileMeta[] }> (without batchIndex — caller assigns).
+ * Returns Array<{ files: FileMeta[], mergeable: boolean }> — caller assigns
+ * batchIndex. `mergeable=false` for semantic Groups A-D (Dockerfile clusters,
+ * .github/workflows, .gitlab-ci/.circleci, SQL migrations) preserves their
+ * boundary intent across the merge-small pass; Group E (catch-all parent-dir
+ * grouping) is `mergeable=true` so its tiny singletons can be pooled.
  */
 function buildNonCodeBatches(nonCodeFiles) {
   const byPath = new Map(nonCodeFiles.map(f => [f.path, f]));
@@ -114,7 +118,7 @@ function buildNonCodeBatches(nonCodeFiles) {
         || b.startsWith('docker-compose.');
     });
     if (cluster.length) {
-      groups.push({ files: cluster.map(p => byPath.get(p)) });
+      groups.push({ files: cluster.map(p => byPath.get(p)), mergeable: false });
       cluster.forEach(p => consumed.add(p));
     }
   }
@@ -124,7 +128,7 @@ function buildNonCodeBatches(nonCodeFiles) {
     p => p.startsWith('.github/workflows/') && (p.endsWith('.yml') || p.endsWith('.yaml')),
   ).filter(p => !consumed.has(p));
   if (ghWorkflows.length) {
-    groups.push({ files: ghWorkflows.map(p => byPath.get(p)) });
+    groups.push({ files: ghWorkflows.map(p => byPath.get(p)), mergeable: false });
     ghWorkflows.forEach(p => consumed.add(p));
   }
 
@@ -134,7 +138,7 @@ function buildNonCodeBatches(nonCodeFiles) {
       && !consumed.has(p),
   );
   if (ciFiles.length) {
-    groups.push({ files: ciFiles.map(p => byPath.get(p)) });
+    groups.push({ files: ciFiles.map(p => byPath.get(p)), mergeable: false });
     ciFiles.forEach(p => consumed.add(p));
   }
 
@@ -152,7 +156,7 @@ function buildNonCodeBatches(nonCodeFiles) {
       .filter(p => dirOf(p) === dir && p.endsWith('.sql') && !consumed.has(p))
       .sort();
     if (sqls.length) {
-      groups.push({ files: sqls.map(p => byPath.get(p)) });
+      groups.push({ files: sqls.map(p => byPath.get(p)), mergeable: false });
       sqls.forEach(p => consumed.add(p));
     }
   }
@@ -170,7 +174,7 @@ function buildNonCodeBatches(nonCodeFiles) {
   for (const [, paths] of remainingByDir) {
     for (let i = 0; i < paths.length; i += MAX_E) {
       const slice = paths.slice(i, i + MAX_E);
-      groups.push({ files: slice.map(p => byPath.get(p)) });
+      groups.push({ files: slice.map(p => byPath.get(p)), mergeable: true });
     }
   }
 
@@ -222,6 +226,65 @@ function countBasedAssignment(codeFiles, batchSize = 12) {
     out.set(sorted[i], `count_${Math.floor(i / batchSize)}`);
   }
   return out;
+}
+
+/**
+ * Pool small mergeable batches into "misc" batches to reduce dispatch overhead.
+ * Preserves semantic groupings (non-code Groups A-D, marked `mergeable=false`)
+ * regardless of size; only merges code Louvain singletons / orphans and
+ * Group E parent-dir batches that fall below MIN_BATCH_SIZE.
+ *
+ * On a 314-file microservices-demo run, vanilla Louvain produced 87 singleton
+ * communities → 87 dispatch tasks of size 1. This pass collapses them into
+ * ceil(N / MAX_MERGE_TARGET) misc batches, drastically cutting orchestration
+ * overhead while leaving the high-modularity communities untouched.
+ *
+ * Returns the rewritten batch list with reassigned batchIndex (1-based,
+ * keepers first preserving their relative order, misc batches appended).
+ */
+function mergeSmallBatches(bareBatches) {
+  const MIN_BATCH_SIZE = 3;
+  const MAX_MERGE_TARGET = 25;
+
+  const keepers = [];
+  const smallMergeable = [];
+  for (const b of bareBatches) {
+    if (b.mergeable && b.files.length < MIN_BATCH_SIZE) {
+      smallMergeable.push(b);
+    } else {
+      keepers.push(b);
+    }
+  }
+
+  if (smallMergeable.length === 0) {
+    // Nothing to merge — strip mergeable flag and renumber for cleanliness.
+    return keepers.map((b, i) => ({
+      batchIndex: i + 1,
+      files: b.files,
+    }));
+  }
+
+  // Pool and sort deterministically by path so repeated runs match byte-for-byte.
+  const pooledFiles = smallMergeable
+    .flatMap(b => b.files)
+    .sort((a, b) => a.path.localeCompare(b.path));
+
+  const miscBatches = [];
+  for (let i = 0; i < pooledFiles.length; i += MAX_MERGE_TARGET) {
+    miscBatches.push({ files: pooledFiles.slice(i, i + MAX_MERGE_TARGET) });
+  }
+
+  process.stderr.write(
+    `Warning: compute-batches: merged ${smallMergeable.length} small batches ` +
+    `(${pooledFiles.length} files) into ${miscBatches.length} misc batches ` +
+    `— singletons and orphans consolidated\n`,
+  );
+
+  const final = [...keepers, ...miscBatches];
+  return final.map((b, i) => ({
+    batchIndex: i + 1,
+    files: b.files,
+  }));
 }
 
 // ── Main: load → Louvain (or count-fallback) → enrich → write batches.json ─
@@ -333,18 +396,25 @@ async function main() {
   // subset of files (see addNode loop above). fileMetaByPath.get() can
   // never return undefined here.
 
-  // First-pass: assemble bare batches (no batchImportData/neighborMap yet)
+  // First-pass: assemble bare batches (no batchImportData/neighborMap yet).
+  // All Louvain communities are mergeable=true so the merge-small pass can
+  // collapse singletons / 2-file orphans. Non-code groups carry per-group
+  // mergeable flags from buildNonCodeBatches (false for semantic Groups A-D,
+  // true for Group E catch-all).
   const codeBatchObjsBare = sortedCommunities.map(([, paths], idx) => ({
     batchIndex: idx + 1,
     files: paths.sort().map(p => fileMetaByPath.get(p)),
+    mergeable: true,
   }));
   const nonCodeGroups = buildNonCodeBatches(nonCodeFiles);
   const nonCodeBatchObjsBare = nonCodeGroups.map((g, i) => ({
     batchIndex: codeBatchObjsBare.length + i + 1,
     files: g.files,
+    mergeable: g.mergeable,
   }));
   const bareBatches = [...codeBatchObjsBare, ...nonCodeBatchObjsBare];
-  const batchOf = buildBatchOfMap(bareBatches);
+  const mergedBareBatches = mergeSmallBatches(bareBatches);
+  const batchOf = buildBatchOfMap(mergedBareBatches);
 
   // Build reverse import map: target → [sources that import target]
   const reverseImportMap = new Map();
@@ -367,7 +437,7 @@ async function main() {
   const MAX_NEIGHBORS = 50;
 
   // Second-pass: enrich each batch with batchImportData + neighborMap
-  const batches = bareBatches.map(b => {
+  const batches = mergedBareBatches.map(b => {
     const batchPaths = new Set(b.files.map(f => f.path));
     const batchImportData = {};
     const neighborMap = {};
