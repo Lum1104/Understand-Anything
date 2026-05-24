@@ -164,24 +164,72 @@ function loadTsConfig(projectRoot) {
 }
 
 /**
+ * Load go.mod from the project root and extract the `module` declaration.
+ * The first non-comment `module <path>` line wins; returns '' if missing.
+ *
+ * Example go.mod:
+ *   module github.com/foo/bar
+ *   go 1.21
+ *
+ * The resolver uses this prefix to translate `import "github.com/foo/bar/x"`
+ * into the project-internal `x/<file>.go`.
+ */
+function loadGoModule(projectRoot) {
+  const path = join(projectRoot, 'go.mod');
+  if (!existsSync(path)) return '';
+  let raw;
+  try {
+    raw = readFileSync(path, 'utf-8');
+  } catch {
+    return '';
+  }
+  // `module foo` lines are simple — strip line comments, then parse.
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.replace(/\/\/.*$/, '').trim();
+    if (!trimmed.startsWith('module ')) continue;
+    return trimmed.slice('module '.length).trim();
+  }
+  return '';
+}
+
+/**
  * Resolution context shared across all per-file resolver calls. Holds:
  *  - fileSet: Set<string> of every input file's posix path
  *  - tsConfig: parsed tsconfig.json (paths + baseUrl)
  *  - goModule: module path from go.mod (e.g. 'github.com/foo/bar')
  *  - phpAutoload: PSR-4 namespace -> directory map from composer.json
+ *  - goFilesByDir: Map<dir, string[]> of .go files per directory (built once
+ *    so Go's package-level import dispatch doesn't re-scan the file set per
+ *    import).
  *
- * Extra fields will be added as later resolvers come online. Build once;
- * pass everywhere.
+ * Build once; pass everywhere.
  */
 function buildResolutionContext(projectRoot, files) {
   const fileSet = new Set(files.map(f => toPosix(f.path)));
   const tsConfig = loadTsConfig(projectRoot);
+  const goModule = loadGoModule(projectRoot);
+
+  // Index .go files by their parent directory so the Go resolver can
+  // expand a package-level import to all member .go files in O(1).
+  const goFilesByDir = new Map();
+  for (const f of files) {
+    if (!f.path.endsWith('.go')) continue;
+    const p = toPosix(f.path);
+    const d = dirOf(p);
+    if (!goFilesByDir.has(d)) goFilesByDir.set(d, []);
+    goFilesByDir.get(d).push(p);
+  }
+  for (const arr of goFilesByDir.values()) {
+    arr.sort((a, b) => a.localeCompare(b));
+  }
+
   return {
     projectRoot,
     fileSet,
     tsConfig,
+    goModule,
+    goFilesByDir,
     // Filled in by later commits as more languages come online
-    goModule: '',
     phpAutoload: new Map(),
   };
 }
@@ -424,6 +472,46 @@ function resolvePythonProbe(moduleParts, specifiers, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Go resolver
+//
+// Tree-sitter's Go extractor emits the literal import path (without quotes).
+// Resolution: strip the go.mod module prefix; the remainder maps to a
+// directory in the project. Go imports are package-level (not file-level),
+// so a single `import "github.com/foo/bar/util"` produces edges to every
+// .go file inside `util/`.
+//
+// Inputs:
+//   - rawImport: 'github.com/foo/bar/util' (no quotes)
+//   - ctx.goModule: 'github.com/foo/bar'
+//
+// Result: array of every `util/*.go` path in the project (deduped by caller).
+// ---------------------------------------------------------------------------
+
+export function resolveGoImport(rawImport, _file, ctx) {
+  if (!rawImport || typeof rawImport !== 'string') return [];
+  const src = rawImport.trim();
+  if (!src) return [];
+  if (!ctx.goModule) return [];
+
+  // Strip module prefix; require a `/` boundary so 'githubXcom...' does not
+  // accidentally match 'github.com...'.
+  let remainder;
+  if (src === ctx.goModule) {
+    remainder = '';
+  } else if (src.startsWith(ctx.goModule + '/')) {
+    remainder = src.slice(ctx.goModule.length + 1);
+  } else {
+    // External package (stdlib or 3rd-party module)
+    return [];
+  }
+
+  // Map to a directory in the project (POSIX style)
+  const dir = toPosix(remainder);
+  const files = ctx.goFilesByDir.get(dir);
+  return files ? [...files] : [];
+}
+
+// ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
 
@@ -454,6 +542,9 @@ function resolveImport(imp, file, ctx) {
   }
   if (lang === 'python') {
     return resolvePythonImport(src, imp.specifiers, file, ctx);
+  }
+  if (lang === 'go') {
+    return resolveGoImport(src, file, ctx);
   }
   // Other languages handled in later commits
   return [];

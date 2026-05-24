@@ -270,6 +270,48 @@ describe('extract-import-map.mjs — Python resolver', () => {
   });
 });
 
+describe('extract-import-map.mjs — Go resolver', () => {
+  let projectRoot;
+
+  afterEach(() => {
+    if (projectRoot) {
+      rmSync(projectRoot, { recursive: true, force: true });
+      projectRoot = null;
+    }
+  });
+
+  it('resolves go imports by stripping the go.mod module prefix', () => {
+    projectRoot = setupTree({
+      'go.mod': `module github.com/foo/bar\n\ngo 1.21\n`,
+      'main.go': `package main\n\nimport (\n\t"fmt"\n\t"github.com/foo/bar/util"\n\t"github.com/foo/bar/db"\n)\n\nfunc main() {\n\tfmt.Println(util.Hi())\n\tdb.Connect()\n}\n`,
+      'util/hello.go': `package util\n\nfunc Hi() string { return "hi" }\n`,
+      'util/world.go': `package util\n\nfunc World() string { return "world" }\n`,
+      'db/db.go': `package db\n\nfunc Connect() {}\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'go.mod', language: 'config', fileCategory: 'config' },
+        { path: 'main.go', language: 'go', fileCategory: 'code' },
+        { path: 'util/hello.go', language: 'go', fileCategory: 'code' },
+        { path: 'util/world.go', language: 'go', fileCategory: 'code' },
+        { path: 'db/db.go', language: 'go', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // `github.com/foo/bar/util` -> all .go files under util/
+    // `github.com/foo/bar/db` -> all .go files under db/
+    // `fmt` is stdlib (no module prefix match) -> dropped
+    expect(result.output.importMap['main.go']).toEqual([
+      'db/db.go',
+      'util/hello.go',
+      'util/world.go',
+    ]);
+  });
+});
+
 describe('extract-import-map.mjs — output schema invariants', () => {
   let projectRoot;
 
