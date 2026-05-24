@@ -181,3 +181,69 @@ describe('compute-batches.mjs — exports extraction', () => {
     expect(batches.exportsByPath['src/missing.ts']).toEqual([]);
   });
 });
+
+describe('compute-batches.mjs — non-code grouping', () => {
+  let root;
+  let batches;
+
+  beforeEach(() => {
+    root = setupProject('scan-result-non-code.json');
+    const result = runScript(root);
+    expect(result.status).toBe(0);
+    batches = readBatches(root);
+  });
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('Group A: bundles Dockerfile cluster per directory', () => {
+    // Root-level cluster: Dockerfile + docker-compose.yml + .dockerignore → one batch
+    const rootDockerBatch = batches.batches.find(b =>
+      b.files.some(f => f.path === 'Dockerfile'));
+    expect(rootDockerBatch).toBeDefined();
+    const paths = rootDockerBatch.files.map(f => f.path).sort();
+    expect(paths).toEqual(['.dockerignore', 'Dockerfile', 'docker-compose.yml']);
+
+    // services/api cluster is a separate batch
+    const apiDockerBatch = batches.batches.find(b =>
+      b.files.some(f => f.path === 'services/api/Dockerfile'));
+    expect(apiDockerBatch).toBeDefined();
+    expect(apiDockerBatch).not.toBe(rootDockerBatch);
+    expect(apiDockerBatch.files.map(f => f.path).sort()).toEqual([
+      'services/api/Dockerfile', 'services/api/docker-compose.yml',
+    ]);
+  });
+
+  it('Group B: .github/workflows/* all in one batch', () => {
+    const wfBatch = batches.batches.find(b =>
+      b.files.some(f => f.path.startsWith('.github/workflows/')));
+    expect(wfBatch).toBeDefined();
+    const wfPaths = wfBatch.files.map(f => f.path).filter(p => p.startsWith('.github/workflows/'));
+    expect(wfPaths.sort()).toEqual([
+      '.github/workflows/ci.yml', '.github/workflows/deploy.yml',
+    ]);
+  });
+
+  it('Group D: SQL migrations under migrations/ in one batch', () => {
+    const migBatch = batches.batches.find(b =>
+      b.files.some(f => f.path.startsWith('migrations/')));
+    expect(migBatch).toBeDefined();
+    const migPaths = migBatch.files.map(f => f.path).filter(p => p.startsWith('migrations/'));
+    expect(migPaths.sort()).toEqual([
+      'migrations/001_init.sql', 'migrations/002_users.sql',
+    ]);
+  });
+
+  it('non-code batch indices follow code batches', () => {
+    const codeBatches = batches.batches.filter(b =>
+      b.files.every(f => f.fileCategory === 'code'));
+    const nonCodeBatches = batches.batches.filter(b =>
+      b.files.some(f => f.fileCategory !== 'code'));
+    expect(codeBatches.length).toBeGreaterThan(0);
+    expect(nonCodeBatches.length).toBeGreaterThan(0);
+    const maxCodeIdx = Math.max(...codeBatches.map(b => b.batchIndex));
+    const minNonCodeIdx = Math.min(...nonCodeBatches.map(b => b.batchIndex));
+    expect(minNonCodeIdx).toBeGreaterThan(maxCodeIdx);
+  });
+});

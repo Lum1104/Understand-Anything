@@ -87,6 +87,93 @@ async function extractExports(projectRoot, codeFiles) {
   return exportsByPath;
 }
 
+/**
+ * Build batches for non-code files per Groups A-E in the design spec.
+ * Returns Array<{ files: FileMeta[] }> (without batchIndex — caller assigns).
+ */
+function buildNonCodeBatches(nonCodeFiles) {
+  const byPath = new Map(nonCodeFiles.map(f => [f.path, f]));
+  const consumed = new Set();
+  const groups = [];
+
+  const dirOf = p => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
+  const baseOf = p => p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p;
+
+  // Group A: per-directory Dockerfile clusters.
+  const dirsWithDockerfile = new Set(
+    [...byPath.keys()]
+      .filter(p => baseOf(p) === 'Dockerfile')
+      .map(dirOf),
+  );
+  for (const dir of dirsWithDockerfile) {
+    const inDir = [...byPath.keys()].filter(p => dirOf(p) === dir);
+    const cluster = inDir.filter(p => {
+      const b = baseOf(p);
+      return b === 'Dockerfile'
+        || b === '.dockerignore'
+        || b.startsWith('docker-compose.');
+    });
+    if (cluster.length) {
+      groups.push({ files: cluster.map(p => byPath.get(p)) });
+      cluster.forEach(p => consumed.add(p));
+    }
+  }
+
+  // Group B: .github/workflows/*
+  const ghWorkflows = [...byPath.keys()].filter(
+    p => p.startsWith('.github/workflows/') && (p.endsWith('.yml') || p.endsWith('.yaml')),
+  ).filter(p => !consumed.has(p));
+  if (ghWorkflows.length) {
+    groups.push({ files: ghWorkflows.map(p => byPath.get(p)) });
+    ghWorkflows.forEach(p => consumed.add(p));
+  }
+
+  // Group C: .gitlab-ci.yml + .circleci/*
+  const ciFiles = [...byPath.keys()].filter(
+    p => (p === '.gitlab-ci.yml' || p.startsWith('.circleci/'))
+      && !consumed.has(p),
+  );
+  if (ciFiles.length) {
+    groups.push({ files: ciFiles.map(p => byPath.get(p)) });
+    ciFiles.forEach(p => consumed.add(p));
+  }
+
+  // Group D: SQL migrations per migrations/ or migration/ directory
+  const migrationDirs = new Set(
+    [...byPath.keys()]
+      .filter(p => p.endsWith('.sql'))
+      .map(dirOf)
+      .filter(d => /(^|\/)migrations?$/.test(d)),
+  );
+  for (const dir of migrationDirs) {
+    const sqls = [...byPath.keys()]
+      .filter(p => dirOf(p) === dir && p.endsWith('.sql') && !consumed.has(p))
+      .sort();
+    if (sqls.length) {
+      groups.push({ files: sqls.map(p => byPath.get(p)) });
+      sqls.forEach(p => consumed.add(p));
+    }
+  }
+
+  // Group E: all remaining grouped by immediate parent dir, max 20 per batch
+  const remainingByDir = new Map();
+  for (const p of [...byPath.keys()].sort()) {
+    if (consumed.has(p)) continue;
+    const dir = dirOf(p);
+    if (!remainingByDir.has(dir)) remainingByDir.set(dir, []);
+    remainingByDir.get(dir).push(p);
+  }
+  const MAX_E = 20;
+  for (const [, paths] of remainingByDir) {
+    for (let i = 0; i < paths.length; i += MAX_E) {
+      const slice = paths.slice(i, i + MAX_E);
+      groups.push({ files: slice.map(p => byPath.get(p)) });
+    }
+  }
+
+  return groups;
+}
+
 // ── Skeleton main: load → Louvain → print sizes ───────────────────────────
 async function main() {
   const projectRoot = process.argv[2];
@@ -104,6 +191,7 @@ async function main() {
   const scan = JSON.parse(readFileSync(scanPath, 'utf-8'));
   const files = scan.files || [];
   const codeFiles = files.filter(f => f.fileCategory === 'code');
+  const nonCodeFiles = files.filter(f => f.fileCategory !== 'code');
   const importMap = scan.importMap || {};
 
   process.stderr.write(`Loaded ${files.length} files (${codeFiles.length} code).\n`);
@@ -168,16 +256,29 @@ async function main() {
     });
 
   // Build per-batch file list with full file metadata from scan
-  const fileMetaByPath = new Map(scan.files.map(f => [f.path, f]));
+  const fileMetaByPath = new Map(files.map(f => [f.path, f]));
   // Safe: every path in a community is a graph node, and graph nodes are a
-  // subset of scan.files (see addNode loop above). fileMetaByPath.get() can
+  // subset of files (see addNode loop above). fileMetaByPath.get() can
   // never return undefined here.
-  const batches = sortedCommunities.map(([, paths], idx) => ({
+
+  // Assign code batchIndex first
+  const codeBatchObjs = sortedCommunities.map(([, paths], idx) => ({
     batchIndex: idx + 1,
     files: paths.sort().map(p => fileMetaByPath.get(p)),
     batchImportData: {},
     neighborMap: {},
   }));
+
+  // Append non-code batches after code
+  const nonCodeGroups = buildNonCodeBatches(nonCodeFiles);
+  const nonCodeBatchObjs = nonCodeGroups.map((g, i) => ({
+    batchIndex: codeBatchObjs.length + i + 1,
+    files: g.files,
+    batchImportData: {},
+    neighborMap: {},
+  }));
+
+  const batches = [...codeBatchObjs, ...nonCodeBatchObjs];
 
   const output = {
     schemaVersion: 1,

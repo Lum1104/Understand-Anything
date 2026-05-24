@@ -1,0 +1,31 @@
+{
+  "name": "fixture-non-code",
+  "description": "Mix of non-code files exercising Groups A-E",
+  "languages": ["typescript", "dockerfile", "yaml", "sql", "markdown"],
+  "frameworks": [],
+  "files": [
+    {"path": "src/index.ts", "language": "typescript", "sizeLines": 10, "fileCategory": "code"},
+    {"path": "Dockerfile", "language": "dockerfile", "sizeLines": 20, "fileCategory": "infra"},
+    {"path": "docker-compose.yml", "language": "yaml", "sizeLines": 15, "fileCategory": "infra"},
+    {"path": ".dockerignore", "language": "config", "sizeLines": 5, "fileCategory": "config"},
+    {"path": "services/api/Dockerfile", "language": "dockerfile", "sizeLines": 18, "fileCategory": "infra"},
+    {"path": "services/api/docker-compose.yml", "language": "yaml", "sizeLines": 12, "fileCategory": "infra"},
+    {"path": ".github/workflows/ci.yml", "language": "yaml", "sizeLines": 30, "fileCategory": "infra"},
+    {"path": ".github/workflows/deploy.yml", "language": "yaml", "sizeLines": 25, "fileCategory": "infra"},
+    {"path": "migrations/001_init.sql", "language": "sql", "sizeLines": 40, "fileCategory": "data"},
+    {"path": "migrations/002_users.sql", "language": "sql", "sizeLines": 20, "fileCategory": "data"},
+    {"path": "docs/getting-started.md", "language": "markdown", "sizeLines": 100, "fileCategory": "docs"},
+    {"path": "README.md", "language": "markdown", "sizeLines": 200, "fileCategory": "docs"}
+  ],
+  "totalFiles": 12,
+  "filteredByIgnore": 0,
+  "estimatedComplexity": "small",
+  "importMap": {
+    "src/index.ts": [],
+    "Dockerfile": [], "docker-compose.yml": [], ".dockerignore": [],
+    "services/api/Dockerfile": [], "services/api/docker-compose.yml": [],
+    ".github/workflows/ci.yml": [], ".github/workflows/deploy.yml": [],
+    "migrations/001_init.sql": [], "migrations/002_users.sql": [],
+    "docs/getting-started.md": [], "README.md": []
+  }
+}
