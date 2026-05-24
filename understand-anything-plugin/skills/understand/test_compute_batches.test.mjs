@@ -485,3 +485,34 @@ describe('compute-batches.mjs — fallback', () => {
     expect(codeBatchFileCount).toBe(9);
   });
 });
+
+describe('compute-batches.mjs — --changed-files', () => {
+  let root;
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('emits only batches containing changed files', () => {
+    root = setupProject('scan-result-3-cliques.json');
+    const changedPath = join(root, 'changed.txt');
+    // Only the auth clique is changed
+    writeFileSync(changedPath, ['src/auth/login.ts', 'src/auth/tokens.ts'].join('\n'));
+
+    const result = runScript(root, [`--changed-files=${changedPath}`]);
+    expect(result.status).toBe(0);
+
+    const out = readBatches(root);
+    // Auth files are in batches; other cliques' batches must be omitted
+    const allPaths = out.batches.flatMap(b => b.files.map(f => f.path));
+    expect(allPaths).toContain('src/auth/login.ts');
+    expect(allPaths).toContain('src/auth/tokens.ts');
+    expect(allPaths).not.toContain('src/api/handlers.ts');
+    expect(allPaths).not.toContain('src/db/users.ts');
+
+    // neighborMap may still reference unchanged files (with their full-graph batchIndex)
+    const loginBatch = out.batches.find(b =>
+      b.files.some(f => f.path === 'src/auth/login.ts'));
+    expect(loginBatch).toBeDefined();
+  });
+});

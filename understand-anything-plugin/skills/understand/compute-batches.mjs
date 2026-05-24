@@ -232,6 +232,19 @@ async function main() {
     process.exit(1);
   }
 
+  let changedFiles = null;
+  for (const arg of process.argv.slice(3)) {
+    const m = arg.match(/^--changed-files=(.+)$/);
+    if (m) {
+      const p = m[1];
+      const lines = readFileSync(p, 'utf-8')
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+      changedFiles = new Set(lines);
+    }
+  }
+
   const scanPath = join(projectRoot, '.understand-anything', 'intermediate', 'scan-result.json');
   if (!existsSync(scanPath)) {
     process.stderr.write(`Error: scan-result.json not found at ${scanPath}\n`);
@@ -390,13 +403,21 @@ async function main() {
     return { batchIndex: b.batchIndex, files: b.files, batchImportData, neighborMap };
   });
 
+  let finalBatches = batches;
+  if (changedFiles) {
+    finalBatches = batches.filter(b => b.files.some(f => changedFiles.has(f.path)));
+    // batchIndex on filtered batches retains the full-graph assignment
+    // (the design says neighborMap should still reference unchanged files'
+    // full-graph batchIndex). No renumbering.
+  }
+
   const output = {
     schemaVersion: 1,
     algorithm,
     totalFiles: scan.files.length,
-    totalBatches: batches.length,
+    totalBatches: finalBatches.length,
     exportsByPath: Object.fromEntries(exportsByPath),
-    batches,
+    batches: finalBatches,
   };
 
   const outPath = join(projectRoot, '.understand-anything', 'intermediate', 'batches.json');
