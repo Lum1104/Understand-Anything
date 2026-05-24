@@ -557,10 +557,18 @@ function extractKotlinSources(content) {
 // Resolution rules:
 //   1. Relative (starts with `.`): walk up parent dirs by leading-dot count,
 //      then descend by the remaining dotted segments.
-//   2. Absolute (no leading dot): try `a/b/c.py` then `a/b/c/__init__.py`
-//      against the file set; resolve to the first match. If matched as a
-//      package, additionally probe each specifier as a submodule
-//      (`a/b/c/x.py`, `a/b/c/x/__init__.py`).
+//   2. Absolute (no leading dot): walk up from the importer's directory,
+//      trying EACH ancestor as a candidate Python root. The first ancestor
+//      under which probing succeeds wins. This matches how multi-service
+//      Python repos work in practice — each service directory acts as its
+//      own root for unqualified `import sibling` style imports
+//      (e.g. microservices-demo's per-service grpc stubs).
+//
+//      We don't gate this on setup.py / pyproject.toml detection. The
+//      probe itself IS the test of whether the ancestor is a candidate
+//      root: an absent module just continues the walk. The closest
+//      ancestor where the import resolves wins, which gives importer
+//      scope precedence (sibling files override remote candidates).
 // ---------------------------------------------------------------------------
 
 /**
@@ -584,6 +592,9 @@ export function resolvePythonImport(rawImport, specifiers, file, ctx) {
   if (dots > 0) {
     // Relative import. `from . import x` (dots=1, tail='') walks up zero
     // directories (sibling level); `from .. import x` walks up one.
+    // Relative imports are anchored at the importer's package, so we do
+    // NOT do the per-root walk-up here — leading dots already encode the
+    // exact anchor.
     const importerParts = importerDir ? importerDir.split('/').filter(Boolean) : [];
     const dropLevels = dots - 1;
     if (dropLevels > importerParts.length) {
@@ -595,10 +606,32 @@ export function resolvePythonImport(rawImport, specifiers, file, ctx) {
     return resolvePythonProbe(moduleParts, specifiers, ctx);
   }
 
-  // Absolute import. `tailSegments` is the dotted module path; resolve
-  // against `<segments>.py` or `<segments>/__init__.py`, and (on a package
-  // match) also probe each specifier as a submodule. See resolvePythonProbe.
-  return resolvePythonProbe(tailSegments, specifiers, ctx);
+  // Absolute import. Walk up from the importer's directory and try every
+  // ancestor as a candidate Python root — the first one where probing
+  // resolves anything wins. This handles the multi-service / multi-package
+  // case where each service's directory acts as its own implicit
+  // sys.path entry (e.g. `import demo_pb2_grpc` from
+  // `src/emailservice/email_server.py` should resolve to
+  // `src/emailservice/demo_pb2_grpc.py`, NOT fail because the file isn't
+  // at `<projectRoot>/demo_pb2_grpc.py`).
+  //
+  // Importer-scope precedence (deepest ancestor first) means that when
+  // the same module name exists in multiple services, each service's
+  // file shadows the others — no cross-service edges.
+  if (tailSegments.length === 0) {
+    // `from . import x` is dots>0 only; reaching here means the source
+    // was the empty string. Nothing to probe.
+    return [];
+  }
+
+  const importerParts = importerDir ? importerDir.split('/').filter(Boolean) : [];
+  for (let i = importerParts.length; i >= 0; i--) {
+    const rootParts = importerParts.slice(0, i);
+    const candidateModule = rootParts.concat(tailSegments);
+    const matches = resolvePythonProbe(candidateModule, specifiers, ctx);
+    if (matches.length > 0) return matches;
+  }
+  return [];
 }
 
 /**

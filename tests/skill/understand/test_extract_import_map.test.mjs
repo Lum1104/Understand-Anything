@@ -327,6 +327,49 @@ describe('extract-import-map.mjs — Python resolver', () => {
     // os/sys/requests/datetime are external; only ./local resolves.
     expect(result.output.importMap['app.py']).toEqual(['local.py']);
   });
+
+  it('resolves absolute imports against the importers per-service root in multi-service repos', () => {
+    // Mirrors microservices-demo: each service ships its own sibling files
+    // under src/<service>/, and uses bare `import helpers` to reach them.
+    // The probe MUST walk up from the importer's dir (not just probe
+    // projectRoot). The same module name in two services must NOT cross-
+    // resolve — importer-dir scope wins.
+    projectRoot = setupTree({
+      'src/svc_a/main.py':
+        `import helpers\nfrom helpers import shout\n`,
+      'src/svc_a/helpers.py':
+        `def shout(): pass\n`,
+      'src/svc_b/main.py':
+        `import helpers\nfrom helpers import shout\n`,
+      'src/svc_b/helpers.py':
+        `def shout(): pass\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'src/svc_a/main.py', language: 'python', fileCategory: 'code' },
+        { path: 'src/svc_a/helpers.py', language: 'python', fileCategory: 'code' },
+        { path: 'src/svc_b/main.py', language: 'python', fileCategory: 'code' },
+        { path: 'src/svc_b/helpers.py', language: 'python', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // Each service's main.py resolves to its OWN helpers.py — no cross-link.
+    expect(result.output.importMap['src/svc_a/main.py']).toEqual([
+      'src/svc_a/helpers.py',
+    ]);
+    expect(result.output.importMap['src/svc_a/main.py']).not.toContain(
+      'src/svc_b/helpers.py',
+    );
+    expect(result.output.importMap['src/svc_b/main.py']).toEqual([
+      'src/svc_b/helpers.py',
+    ]);
+    expect(result.output.importMap['src/svc_b/main.py']).not.toContain(
+      'src/svc_a/helpers.py',
+    );
+  });
 });
 
 describe('extract-import-map.mjs — Go resolver', () => {
