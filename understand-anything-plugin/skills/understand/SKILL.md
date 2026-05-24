@@ -275,26 +275,32 @@ If the scan result includes `filteredByIgnore > 0`, report:
 
 ---
 
+## Phase 1.5 — BATCH
+
+Report: `[Phase 1.5/7] Computing semantic batches...`
+
+Run the bundled batching script:
+```bash
+node <SKILL_DIR>/compute-batches.mjs $PROJECT_ROOT
+```
+
+Reads `.understand-anything/intermediate/scan-result.json`, writes `.understand-anything/intermediate/batches.json`.
+
+Capture stderr. Append any line starting with `Warning:` to `$PHASE_WARNINGS` for the final report.
+
+If the script exits non-zero, the failure is hard — relay the full stderr to the user as a Phase 1.5 failure. Do not attempt to recover; the script's internal fallback (count-based) already handles recoverable issues. A non-zero exit means a fundamental problem (missing input file, malformed JSON, etc.).
+
+---
+
 ## Phase 2 — ANALYZE
 
 ### Full analysis path
 
-Batch the file list from Phase 1 into groups of **20-30 files each** (aim for ~25 files per batch for balanced sizes).
+Load `.understand-anything/intermediate/batches.json` (produced by Phase 1.5). Iterate the `batches[]` array.
 
-**Batching strategy for non-code files:**
-- Group related non-code files together in the same batch when possible:
-  - Dockerfile + docker-compose.yml + .dockerignore → same batch
-  - SQL migration files → same batch (ordered by filename)
-  - CI/CD config files (.github/workflows/*) → same batch
-  - Documentation files (docs/*.md) → same batch
-- This allows the file-analyzer to create cross-file edges (e.g., docker-compose `depends_on` Dockerfile)
-- Non-code files can be mixed with code files in the same batch if batch sizes are small
-- Each file's `fileCategory` from Phase 1 must be included in the batch file list
+Report: `[Phase 2/7] Analyzing files — <totalFiles> files in <totalBatches> batches (up to 5 concurrent)...`
 
-After batching, report the plan to the user:
-> `[Phase 2/7] Analyzing files — <totalFiles> files in <totalBatches> batches (up to 5 concurrent)...`
-
-For each batch, dispatch a subagent using the `file-analyzer` agent definition (at `agents/file-analyzer.md`). Run up to **5 subagents concurrently** using parallel dispatch. Append the following additional context:
+For each batch, dispatch a subagent using the `file-analyzer` agent definition (at `agents/file-analyzer.md`). Run up to **5 subagents concurrently**. Append the following additional context:
 
 > **Additional context from main session:**
 >
@@ -303,14 +309,7 @@ For each batch, dispatch a subagent using the `file-analyzer` agent definition (
 >
 > $LANGUAGE_DIRECTIVE
 
-Before dispatching each batch, construct `batchImportData` from `$IMPORT_MAP`:
-```json
-batchImportData = {}
-for each file in this batch:
-  batchImportData[file.path] = $IMPORT_MAP[file.path] ?? []
-```
-
-Fill in batch-specific parameters below and dispatch:
+Dispatch prompt template (fill in batch-specific values from `batches.json[i]`):
 
 > Analyze these files and produce GraphNode and GraphEdge objects.
 > Project root: `$PROJECT_ROOT`
@@ -318,11 +317,16 @@ Fill in batch-specific parameters below and dispatch:
 > Languages: `<languages>`
 > Batch: `<batchIndex>/<totalBatches>`
 > Skill directory (for bundled scripts): `<SKILL_DIR>`
-> Write output to: `$PROJECT_ROOT/.understand-anything/intermediate/batch-<batchIndex>.json`
+> Output: write to `$PROJECT_ROOT/.understand-anything/intermediate/batch-<batchIndex>.json` (single-file mode) OR `batch-<batchIndex>-part-<k>.json` (split mode, per Step B of your output protocol).
 >
-> Pre-resolved import data for this batch (use this for all import edge creation — do NOT re-resolve imports from source):
+> Pre-resolved import data for this batch (use directly — do NOT re-resolve imports from source):
 > ```json
-> <batchImportData JSON>
+> <batchImportData JSON from batches.json[i].batchImportData>
+> ```
+>
+> Cross-batch neighbors with their exported symbols (confidence boost for cross-batch edges):
+> ```json
+> <neighborMap JSON from batches.json[i].neighborMap>
 > ```
 >
 > Files to analyze in this batch (every entry MUST be passed through to `batchFiles` with all four fields — `path`, `language`, `sizeLines`, `fileCategory`):
@@ -337,7 +341,7 @@ Run the merge-and-normalize script bundled with this skill (located next to this
 python <SKILL_DIR>/merge-batch-graphs.py $PROJECT_ROOT
 ```
 
-This script reads all `batch-*.json` files from `$PROJECT_ROOT/.understand-anything/intermediate/`, then in one pass:
+This script reads all `batch-*.json` files (including `batch-<i>-part-<k>.json` produced by file-analyzers that split their output) from `$PROJECT_ROOT/.understand-anything/intermediate/`, then in one pass:
 - Combines all nodes and edges across batches
 - Normalizes node IDs (strips double prefixes, project-name prefixes, adds missing prefixes)
 - Normalizes complexity values (`low`→`simple`, `medium`→`moderate`, `high`→`complex`, etc.)
@@ -346,7 +350,7 @@ This script reads all `batch-*.json` files from `$PROJECT_ROOT/.understand-anyth
 - Drops dangling edges referencing missing nodes
 - Logs all corrections and dropped items to stderr
 
-The merge script also runs a `tested_by` linker that canonicalizes test-coverage edges in two passes. **Pass 1** walks LLM-emitted `tested_by` edges and flips inverted ones in place (the LLM systematically emits `test → production` because it sees the import only when analyzing the test file); semantically broken edges (test↔test, prod↔prod, orphan endpoints) are dropped. **Pass 2** supplements with path-convention pairings (`X.ts` ↔ `X.test.ts`, JS/TS `__tests__/` and `<dir>/test/` walk-out, Python in-package `tests/`, Go `_test.go` sibling, Maven/Gradle `src/test/...` ↔ `src/main/...`, .NET `<svc>/tests/` ↔ `<svc>/src/...` and `<App>.Tests/` ↔ `<App>/`). Production nodes that end up sourcing any `tested_by` edge get a `"tested"` tag. All resulting edges run `production → test`.
+The merge script also runs a `tested_by` linker that canonicalizes test-coverage edges in two passes. **Pass 1** walks LLM-emitted `tested_by` edges and flips inverted ones in place; semantically broken edges (test↔test, prod↔prod, orphan endpoints) are dropped. **Pass 2** supplements with path-convention pairings. Production nodes that end up sourcing any `tested_by` edge get a `"tested"` tag. All resulting edges run `production → test`.
 
 Output: `$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json`
 
@@ -354,7 +358,20 @@ Include the script's warnings in `$PHASE_WARNINGS` for the reviewer.
 
 ### Incremental update path
 
-Use the changed files list from Phase 0. Batch and dispatch file-analyzer subagents using the same process as above (20-30 files per batch, up to 5 concurrent, with batchImportData constructed from $IMPORT_MAP), but only for changed files.
+Write the changed-files list (one path per line) to a temp file:
+```bash
+git diff <lastCommitHash>..HEAD --name-only > $PROJECT_ROOT/.understand-anything/tmp/changed-files.txt
+```
+
+Run compute-batches with `--changed-files`:
+```bash
+node <SKILL_DIR>/compute-batches.mjs $PROJECT_ROOT \
+  --changed-files=$PROJECT_ROOT/.understand-anything/tmp/changed-files.txt
+```
+
+This produces a `batches.json` that contains only batches with changed files, but neighborMap entries still reference unchanged files (with their full-graph batchIndex) so cross-batch edges remain emittable.
+
+Then dispatch file-analyzer subagents per the same template as the full path.
 
 After batches complete:
 1. Remove old nodes whose `filePath` matches any changed file from the existing graph
