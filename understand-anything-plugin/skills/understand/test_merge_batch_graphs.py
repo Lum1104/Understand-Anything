@@ -941,5 +941,123 @@ class MergeEdgeDirectionTests(unittest.TestCase):
         self.assertEqual(edges[0]["weight"], 0.9)
 
 
+# ── Multi-part batch handling ─────────────────────────────────────────────
+
+
+class TestMultiPart(unittest.TestCase):
+    """End-to-end tests for batch-<i>-part-<k>.json input handling.
+
+    These tests invoke merge-batch-graphs.py as a subprocess in a temp
+    directory so we exercise the full path: glob → load → merge → write.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp(prefix="ua-mbg-"))
+        self.intermediate = self.tmp / ".understand-anything" / "intermediate"
+        self.intermediate.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self) -> None:
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write_batch(self, name: str, nodes: list, edges: list) -> None:
+        import json as _j
+        (self.intermediate / name).write_text(
+            _j.dumps({"nodes": nodes, "edges": edges}),
+            encoding="utf-8",
+        )
+
+    def _run_merge(self) -> tuple[int, str, dict]:
+        import subprocess
+        import json as _j
+        result = subprocess.run(
+            ["python3", str(_MODULE_PATH), str(self.tmp)],
+            capture_output=True, text=True,
+        )
+        out_path = self.intermediate / "assembled-graph.json"
+        assembled = _j.loads(out_path.read_text()) if out_path.exists() else {}
+        return result.returncode, result.stderr, assembled
+
+    def test_two_parts_of_one_logical_batch_merge(self) -> None:
+        self._write_batch("batch-1-part-1.json",
+            [_file_node("src/a.ts")],
+            [{"source": "file:src/a.ts", "target": "file:src/b.ts",
+              "type": "imports", "direction": "forward", "weight": 0.7}])
+        self._write_batch("batch-1-part-2.json",
+            [_file_node("src/b.ts")],
+            [])
+        rc, _stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        node_ids = {n["id"] for n in assembled["nodes"]}
+        self.assertEqual(node_ids, {"file:src/a.ts", "file:src/b.ts"})
+        # Cross-part edge survived
+        edge_keys = {(e["source"], e["target"], e["type"]) for e in assembled["edges"]}
+        self.assertIn(
+            ("file:src/a.ts", "file:src/b.ts", "imports"), edge_keys)
+
+    def test_three_parts_of_one_logical_batch_merge(self) -> None:
+        for k, path in enumerate(["src/a.ts", "src/b.ts", "src/c.ts"], start=1):
+            self._write_batch(f"batch-1-part-{k}.json",
+                [_file_node(path)], [])
+        rc, _stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        node_ids = {n["id"] for n in assembled["nodes"]}
+        self.assertEqual(node_ids,
+            {"file:src/a.ts", "file:src/b.ts", "file:src/c.ts"})
+
+    def test_malformed_part_is_skipped_with_warning(self) -> None:
+        (self.intermediate / "batch-1-part-1.json").write_text(
+            "{ this is not valid json", encoding="utf-8")
+        self._write_batch("batch-1-part-2.json",
+            [_file_node("src/b.ts")], [])
+        rc, stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        # The skip warning is from existing load_batch logic
+        self.assertIn("skipping batch-1-part-1.json", stderr)
+        # part-2 content still made it in
+        node_ids = {n["id"] for n in assembled["nodes"]}
+        self.assertEqual(node_ids, {"file:src/b.ts"})
+
+    def test_mixed_single_and_multi_part(self) -> None:
+        self._write_batch("batch-1.json",
+            [_file_node("src/single.ts")], [])
+        self._write_batch("batch-2-part-1.json",
+            [_file_node("src/multi-a.ts")], [])
+        self._write_batch("batch-2-part-2.json",
+            [_file_node("src/multi-b.ts")], [])
+        self._write_batch("batch-3.json",
+            [_file_node("src/another-single.ts")], [])
+        rc, _stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        node_ids = {n["id"] for n in assembled["nodes"]}
+        self.assertEqual(node_ids, {
+            "file:src/single.ts", "file:src/multi-a.ts",
+            "file:src/multi-b.ts", "file:src/another-single.ts",
+        })
+
+    def test_missing_part_emits_warning(self) -> None:
+        # parts {2, 3} present, part-1 missing
+        self._write_batch("batch-1-part-2.json",
+            [_file_node("src/b.ts")], [])
+        self._write_batch("batch-1-part-3.json",
+            [_file_node("src/c.ts")], [])
+        rc, stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        self.assertRegex(stderr,
+            r"Warning: merge: batch 1 has parts \[2, 3\] but "
+            r"missing part \[1\] — possible truncated write")
+
+    def test_stderr_report_format(self) -> None:
+        self._write_batch("batch-1.json", [_file_node("src/a.ts")], [])
+        self._write_batch("batch-2-part-1.json", [_file_node("src/b.ts")], [])
+        self._write_batch("batch-2-part-2.json", [_file_node("src/c.ts")], [])
+        rc, stderr, _assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        # 3 files on disk, 2 logical batches, 1 multi-part
+        self.assertIn(
+            "Found 3 batch files (2 logical batches, 1 multi-part)", stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
