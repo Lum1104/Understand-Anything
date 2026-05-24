@@ -264,24 +264,91 @@ async function main() {
   // subset of files (see addNode loop above). fileMetaByPath.get() can
   // never return undefined here.
 
-  // Assign code batchIndex first
-  const codeBatchObjs = sortedCommunities.map(([, paths], idx) => ({
+  // Helper: lookup batchIndex by path (any batch — code or non-code)
+  // Build it after we know batch assignments.
+  function buildBatchOfMap(allBatches) {
+    const m = new Map();
+    for (const b of allBatches) {
+      for (const f of b.files) m.set(f.path, b.batchIndex);
+    }
+    return m;
+  }
+
+  // First-pass: assemble bare batches (no batchImportData/neighborMap yet)
+  const codeBatchObjsBare = sortedCommunities.map(([, paths], idx) => ({
     batchIndex: idx + 1,
     files: paths.sort().map(p => fileMetaByPath.get(p)),
-    batchImportData: {},
-    neighborMap: {},
   }));
-
-  // Append non-code batches after code
   const nonCodeGroups = buildNonCodeBatches(nonCodeFiles);
-  const nonCodeBatchObjs = nonCodeGroups.map((g, i) => ({
-    batchIndex: codeBatchObjs.length + i + 1,
+  const nonCodeBatchObjsBare = nonCodeGroups.map((g, i) => ({
+    batchIndex: codeBatchObjsBare.length + i + 1,
     files: g.files,
-    batchImportData: {},
-    neighborMap: {},
   }));
+  const bareBatches = [...codeBatchObjsBare, ...nonCodeBatchObjsBare];
+  const batchOf = buildBatchOfMap(bareBatches);
 
-  const batches = [...codeBatchObjs, ...nonCodeBatchObjs];
+  // Build reverse import map: target → [sources that import target]
+  const reverseImportMap = new Map();
+  for (const [src, targets] of Object.entries(importMap)) {
+    for (const tgt of targets) {
+      if (!reverseImportMap.has(tgt)) reverseImportMap.set(tgt, []);
+      reverseImportMap.get(tgt).push(src);
+    }
+  }
+
+  // Compute neighbor degree (number of import relations) per path, used for
+  // truncation when neighborMap[file] has > MAX_NEIGHBORS entries.
+  const NEIGHBOR_DEGREE = new Map();
+  for (const f of codeFiles) {
+    const outDeg = (importMap[f.path] || []).length;
+    const inDeg = (reverseImportMap.get(f.path) || []).length;
+    NEIGHBOR_DEGREE.set(f.path, outDeg + inDeg);
+  }
+
+  const MAX_NEIGHBORS = 50;
+
+  // Second-pass: enrich each batch with batchImportData + neighborMap
+  const batches = bareBatches.map(b => {
+    const batchPaths = new Set(b.files.map(f => f.path));
+    const batchImportData = {};
+    const neighborMap = {};
+    for (const f of b.files) {
+      batchImportData[f.path] = (importMap[f.path] || []).slice();
+
+      // 1-hop neighbors: imports out + imported-by in, excluding same batch.
+      // Note on truncation: we measure "popularity" by total raw 1-hop neighbor
+      // count (rawCount), not kept.length. A widely-imported hub like a logger
+      // module may have N>50 inbound imports but, after Louvain + size
+      // enforcement, only some land in other batches — kept.length can be < 50
+      // while the file is still a high-degree hub whose missing relationships
+      // matter for downstream cross-batch edge confidence. Warning on rawCount
+      // surfaces this; truncation on kept ensures the JSON stays bounded.
+      const outNeighbors = importMap[f.path] || [];
+      const inNeighbors = reverseImportMap.get(f.path) || [];
+      const all = new Set([...outNeighbors, ...inNeighbors]);
+      const rawCount = all.size;
+      const filtered = [...all].filter(p => batchOf.has(p) && !batchPaths.has(p));
+
+      let kept = filtered.map(p => ({
+        path: p,
+        batchIndex: batchOf.get(p),
+        symbols: exportsByPath.get(p) || [],
+      }));
+
+      if (rawCount > MAX_NEIGHBORS) {
+        kept.sort((a, b2) => (NEIGHBOR_DEGREE.get(b2.path) || 0)
+                            - (NEIGHBOR_DEGREE.get(a.path) || 0));
+        kept = kept.slice(0, MAX_NEIGHBORS);
+        process.stderr.write(
+          `Warning: compute-batches: neighborMap for ${f.path} truncated from ` +
+          `${rawCount} to top ${MAX_NEIGHBORS} (by neighbor degree)\n`,
+        );
+      }
+
+      if (kept.length) neighborMap[f.path] = kept;
+    }
+    return { batchIndex: b.batchIndex, files: b.files, batchImportData, neighborMap };
+  });
 
   const output = {
     schemaVersion: 1,

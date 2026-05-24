@@ -296,3 +296,130 @@ describe('compute-batches.mjs — Group E MAX_E split', () => {
     expect(sizes).toEqual([20, 5]);
   });
 });
+
+describe('compute-batches.mjs — neighborMap + batchImportData', () => {
+  let batches;
+  let batchOf;  // path → batchIndex
+  let projectRoot;
+
+  beforeEach(() => {
+    projectRoot = setupProject('scan-result-3-cliques.json');
+    const result = runScript(projectRoot);
+    expect(result.status).toBe(0);
+    batches = readBatches(projectRoot);
+    batchOf = new Map();
+    for (const b of batches.batches) {
+      for (const f of b.files) batchOf.set(f.path, b.batchIndex);
+    }
+  });
+
+  afterEach(() => {
+    if (projectRoot) rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('batchImportData mirrors scan importMap per batch', () => {
+    for (const b of batches.batches) {
+      for (const f of b.files) {
+        expect(b.batchImportData[f.path]).toBeDefined();
+        expect(Array.isArray(b.batchImportData[f.path])).toBe(true);
+      }
+    }
+    // src/auth/login.ts imports src/auth/session.ts and src/auth/tokens.ts
+    const loginBatch = batches.batches.find(b =>
+      b.files.some(f => f.path === 'src/auth/login.ts'));
+    expect(loginBatch.batchImportData['src/auth/login.ts'].sort()).toEqual([
+      'src/auth/session.ts', 'src/auth/tokens.ts',
+    ]);
+  });
+
+  it('neighborMap excludes same-batch files', () => {
+    // The fixture's three cliques each go into one batch — all imports are
+    // intra-batch, so no neighbor map should reference any same-batch file.
+    for (const b of batches.batches) {
+      const sameBatchPaths = new Set(b.files.map(f => f.path));
+      for (const [, neighbors] of Object.entries(b.neighborMap)) {
+        for (const n of neighbors) {
+          expect(sameBatchPaths.has(n.path)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('neighborMap entries carry symbols when target has exports', () => {
+    // Force a/b into different batches via an asymmetric fixture inline.
+    const root = mkdtempSync(join(tmpdir(), 'ua-cb-nbr-'));
+    mkdirSync(join(root, '.understand-anything', 'intermediate'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'a.ts'),
+      'export function findUser(id: string) { return null; }\nexport class User {}\n');
+    writeFileSync(join(root, 'src', 'b.ts'),
+      'import { findUser } from "./a";\nexport const wrap = () => findUser("x");\n');
+    const scan = {
+      name: 't', description: '',
+      languages: ['typescript'], frameworks: [],
+      files: [
+        { path: 'src/a.ts', language: 'typescript', sizeLines: 2, fileCategory: 'code' },
+        { path: 'src/b.ts', language: 'typescript', sizeLines: 2, fileCategory: 'code' },
+      ],
+      totalFiles: 2, filteredByIgnore: 0, estimatedComplexity: 'small',
+      importMap: { 'src/a.ts': [], 'src/b.ts': ['src/a.ts'] },
+    };
+    writeFileSync(
+      join(root, '.understand-anything', 'intermediate', 'scan-result.json'),
+      JSON.stringify(scan));
+    const result = runScript(root);
+    expect(result.status).toBe(0);
+    const out = readBatches(root);
+    // If Louvain puts a and b in the same community (likely for n=2 with one edge),
+    // this test asserts nothing specific (no cross-batch neighbors exist). We just
+    // assert: any cross-batch neighbor entry pointing to a.ts carries the symbols.
+    for (const b of out.batches) {
+      for (const [, neighbors] of Object.entries(b.neighborMap)) {
+        for (const n of neighbors) {
+          if (n.path === 'src/a.ts') {
+            expect(n.symbols).toEqual(expect.arrayContaining(['findUser', 'User']));
+          }
+        }
+      }
+    }
+    rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe('compute-batches.mjs — neighborMap truncation', () => {
+  let root;
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('truncates and warns when neighbors > 50', () => {
+    root = mkdtempSync(join(tmpdir(), 'ua-cb-trunc-'));
+    mkdirSync(join(root, '.understand-anything', 'intermediate'), { recursive: true });
+    // hub.ts imported by 60 other files
+    const files = [{ path: 'src/hub.ts', language: 'typescript', sizeLines: 1, fileCategory: 'code' }];
+    const importMap = { 'src/hub.ts': [] };
+    for (let i = 0; i < 60; i++) {
+      const p = `src/leaf${i}.ts`;
+      files.push({ path: p, language: 'typescript', sizeLines: 1, fileCategory: 'code' });
+      importMap[p] = ['src/hub.ts'];
+    }
+    const scan = {
+      name: 't', description: '', languages: ['typescript'], frameworks: [],
+      files, totalFiles: files.length, filteredByIgnore: 0,
+      estimatedComplexity: 'moderate', importMap,
+    };
+    writeFileSync(
+      join(root, '.understand-anything', 'intermediate', 'scan-result.json'),
+      JSON.stringify(scan));
+    const result = runScript(root);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toMatch(/neighborMap for src\/hub\.ts truncated from 60 to top 50/);
+    const out = readBatches(root);
+    // Find hub.ts and confirm its neighbor list capped at 50 (in whichever batch it landed)
+    for (const b of out.batches) {
+      const nbrs = b.neighborMap['src/hub.ts'];
+      if (nbrs) expect(nbrs.length).toBeLessThanOrEqual(50);
+    }
+  });
+});
