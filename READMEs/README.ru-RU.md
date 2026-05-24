@@ -182,7 +182,7 @@ Understand-Anything работает с несколькими платформ�
 /plugin install understand-anything
 ```
 
-### Установка одной командой (Codex / OpenCode / OpenClaw / Antigravity CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI)
+### Установка одной командой (Codex / OpenCode / OpenClaw / Antigravity CLI / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI)
 
 **macOS / Linux:**
 ```bash
@@ -229,8 +229,8 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Codex | ✅ Поддерживается | `install.sh codex` |
 | OpenCode | ✅ Поддерживается | `install.sh opencode` |
 | OpenClaw | ✅ Поддерживается | `install.sh openclaw` |
-| Antigravity | ✅ Поддерживается | `install.sh antigravity` |
 | Antigravity CLI | ✅ Поддерживается | `install.sh antigravity` |
+| Gemini CLI | ✅ Поддерживается | `install.sh gemini` |
 | Pi Agent | ✅ Поддерживается | `install.sh pi` |
 | Vibe CLI | ✅ Поддерживается | `install.sh vibe` |
 | Hermes | ✅ Поддерживается | `install.sh hermes` |

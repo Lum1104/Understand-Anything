@@ -181,7 +181,7 @@ Understand-Anything 可在多個 AI 編碼平台上執行。
 /plugin install understand-anything
 ```
 
-### 一行指令安裝（Codex / OpenCode / OpenClaw / Antigravity CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI）
+### 一行指令安裝（Codex / OpenCode / OpenClaw / Antigravity CLI / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI）
 
 **macOS / Linux：**
 ```bash
@@ -228,8 +228,8 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Codex | ✅ 支援 | `install.sh codex` |
 | OpenCode | ✅ 支援 | `install.sh opencode` |
 | OpenClaw | ✅ 支援 | `install.sh openclaw` |
-| Antigravity | ✅ 支援 | `install.sh antigravity` |
 | Antigravity CLI | ✅ 支援 | `install.sh antigravity` |
+| Gemini CLI | ✅ 支援 | `install.sh gemini` |
 | Pi Agent | ✅ 支援 | `install.sh pi` |
 | Vibe CLI | ✅ 支援 | `install.sh vibe` |
 | Hermes | ✅ 支援 | `install.sh hermes` |
