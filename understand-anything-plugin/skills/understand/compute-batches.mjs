@@ -12,12 +12,15 @@
  * Output: <project-root>/.understand-anything/intermediate/batches.json
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, resolve, join } from 'node:path';
+import { readFileSync, existsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
+
+const TOO_LARGE_THRESHOLD = 35;  // becomes MAX_COMMUNITY_SIZE in Task 4
+const TOO_SMALL_THRESHOLD = 5;   // informational only — small communities are kept (no merge), see Task 6/7 design
 
 // ── Skeleton main: load → Louvain → print sizes ───────────────────────────
 async function main() {
@@ -34,10 +37,11 @@ async function main() {
   }
 
   const scan = JSON.parse(readFileSync(scanPath, 'utf-8'));
-  const codeFiles = (scan.files || []).filter(f => f.fileCategory === 'code');
+  const files = scan.files || [];
+  const codeFiles = files.filter(f => f.fileCategory === 'code');
   const importMap = scan.importMap || {};
 
-  process.stderr.write(`Loaded ${scan.files.length} files (${codeFiles.length} code).\n`);
+  process.stderr.write(`Loaded ${files.length} files (${codeFiles.length} code).\n`);
 
   // Build undirected import graph
   const g = new Graph({ type: 'undirected', allowSelfLoops: false });
@@ -64,16 +68,26 @@ async function main() {
   );
   process.stderr.write(
     `Max community size: ${sizes[0] ?? 0}, min: ${sizes.at(-1) ?? 0}, ` +
-    `>35: ${sizes.filter(s => s > 35).length}, <5: ${sizes.filter(s => s < 5).length}\n`,
+    `>${TOO_LARGE_THRESHOLD}: ${sizes.filter(s => s > TOO_LARGE_THRESHOLD).length}, <${TOO_SMALL_THRESHOLD}: ${sizes.filter(s => s < TOO_SMALL_THRESHOLD).length}\n`,
   );
 }
 
-// CLI entry guard (mirrors extract-structure.mjs pattern)
-import { realpathSync } from 'node:fs';
+// ---------------------------------------------------------------------------
+// Run only when executed directly as a CLI; importing the module (e.g. from
+// tests) must not trigger main().
+//
+// Canonicalize both sides through realpathSync. Node ESM resolves
+// import.meta.url through symlinks but pathToFileURL(process.argv[1]) preserves
+// them, so a raw equality check silently no-ops when the script is invoked via
+// a symlinked plugin install path (the default in Claude Code / Copilot CLI
+// caches). See GitHub issue #162.
+// ---------------------------------------------------------------------------
 function isCliEntry() {
   if (!process.argv[1]) return false;
   try {
-    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+    const modulePath = realpathSync(fileURLToPath(import.meta.url));
+    const argvPath = realpathSync(process.argv[1]);
+    return modulePath === argvPath;
   } catch {
     return false;
   }
