@@ -13,11 +13,70 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+
+const __filename = fileURLToPath(import.meta.url);
+const PLUGIN_ROOT = resolve(dirname(__filename), '../..');
+const require = createRequire(resolve(PLUGIN_ROOT, 'package.json'));
+
+let core;
+try {
+  core = await import(pathToFileURL(require.resolve('@understand-anything/core')).href);
+} catch {
+  core = await import(pathToFileURL(resolve(PLUGIN_ROOT, 'packages/core/dist/index.js')).href);
+}
+const { TreeSitterPlugin, PluginRegistry, builtinLanguageConfigs, registerAllParsers } = core;
 
 import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
+
+/**
+ * For each code file, returns its top-level exported symbol names (functions,
+ * classes, exported consts). Per-file errors are swallowed into [] with a
+ * visible warning so a single bad file does not abort batching.
+ *
+ * Returns Map<path, string[]>.
+ */
+async function extractExports(projectRoot, codeFiles) {
+  const tsConfigs = builtinLanguageConfigs.filter(c => c.treeSitter);
+  const tsPlugin = new TreeSitterPlugin(tsConfigs);
+  await tsPlugin.init();
+  const registry = new PluginRegistry();
+  registry.register(tsPlugin);
+  registerAllParsers(registry);
+
+  const exportsByPath = new Map();
+  for (const file of codeFiles) {
+    const abs = join(projectRoot, file.path);
+    let content;
+    try {
+      content = readFileSync(abs, 'utf-8');
+    } catch (err) {
+      process.stderr.write(
+        `Warning: compute-batches: exports extraction failed for ${file.path} ` +
+        `(read error: ${err.message}) — symbols=[] in neighborMap — ` +
+        `cross-batch edges to this file limited to file-level\n`,
+      );
+      exportsByPath.set(file.path, []);
+      continue;
+    }
+    try {
+      const analysis = registry.analyzeFile(file.path, content);
+      const names = (analysis?.exports || []).map(e => e.name).filter(Boolean);
+      exportsByPath.set(file.path, names);
+    } catch (err) {
+      process.stderr.write(
+        `Warning: compute-batches: exports extraction failed for ${file.path} ` +
+        `(${err.message}) — symbols=[] in neighborMap — ` +
+        `cross-batch edges to this file limited to file-level\n`,
+      );
+      exportsByPath.set(file.path, []);
+    }
+  }
+  return exportsByPath;
+}
 
 // ── Skeleton main: load → Louvain → print sizes ───────────────────────────
 async function main() {
@@ -39,6 +98,8 @@ async function main() {
   const importMap = scan.importMap || {};
 
   process.stderr.write(`Loaded ${files.length} files (${codeFiles.length} code).\n`);
+
+  const exportsByPath = await extractExports(projectRoot, codeFiles);
 
   // Build undirected import graph
   const g = new Graph({ type: 'undirected', allowSelfLoops: false });
@@ -114,6 +175,7 @@ async function main() {
     algorithm: 'louvain',
     totalFiles: scan.files.length,
     totalBatches: batches.length,
+    exportsByPath: Object.fromEntries(exportsByPath),
     batches,
   };
 

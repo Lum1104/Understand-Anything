@@ -107,3 +107,48 @@ describe('compute-batches.mjs — size enforcement', () => {
     expect(result.stderr).toMatch(/Warning: compute-batches: community size 40 > max 35/);
   });
 });
+
+describe('compute-batches.mjs — exports extraction', () => {
+  let root;
+
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('populates exports for code files via tree-sitter', () => {
+    root = mkdtempSync(join(tmpdir(), 'ua-cb-exp-'));
+    mkdirSync(join(root, '.understand-anything', 'intermediate'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'a.ts'),
+      'export function greet(name: string) { return "hi " + name; }\n' +
+      'export class Greeter { greet(n: string) { return "hi " + n; } }\n');
+    writeFileSync(join(root, 'src', 'b.ts'),
+      'import { greet } from "./a";\nexport const helper = () => greet("world");\n');
+
+    const scan = {
+      name: 'exports-test',
+      description: '',
+      languages: ['typescript'],
+      frameworks: [],
+      files: [
+        { path: 'src/a.ts', language: 'typescript', sizeLines: 2, fileCategory: 'code' },
+        { path: 'src/b.ts', language: 'typescript', sizeLines: 2, fileCategory: 'code' },
+      ],
+      totalFiles: 2, filteredByIgnore: 0, estimatedComplexity: 'small',
+      importMap: { 'src/a.ts': [], 'src/b.ts': ['src/a.ts'] },
+    };
+    writeFileSync(
+      join(root, '.understand-anything', 'intermediate', 'scan-result.json'),
+      JSON.stringify(scan));
+
+    const result = runScript(root);
+    expect(result.status).toBe(0);
+
+    const batches = readBatches(root);
+    expect(batches.exportsByPath).toBeDefined();
+    expect(batches.exportsByPath['src/a.ts']).toEqual(
+      expect.arrayContaining(['greet', 'Greeter']));
+    expect(batches.exportsByPath['src/b.ts']).toEqual(
+      expect.arrayContaining(['helper']));
+  });
+});
