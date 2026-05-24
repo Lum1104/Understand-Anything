@@ -12,7 +12,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in `.unde
 
 - `$ARGUMENTS` may contain:
   - `--full` — Force a full rebuild, ignoring any existing graph
-  - `--caveman` — Reduced-token mode (~65-70% fewer tokens). Skips function/class extraction, import resolution, and LLM-based architecture/tour agents. Produces a file-level-only graph with deterministic layers and tour. Ideal for quick overviews or large codebases. Incompatible with `--review` (caveman mode ignores `--review` if both are passed).
+  - `--caveman` — Reduced-token mode (~65-70% fewer tokens). Skips function/class extraction, import resolution, and LLM-based architecture/tour agents. Produces a file-level-only graph with deterministic layers and tour. Ideal for quick overviews or large codebases. Incompatible with `--review` (caveman mode ignores `--review` if both are passed). **Note:** layer names and tour titles/descriptions are English-only — `--language` still applies to file-node summaries but not to caveman's deterministic labels.
   - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `.understand-anything/config.json`)
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `.understand-anything/config.json`)
   - `--review` — Run full LLM graph-reviewer instead of inline deterministic validation
@@ -156,7 +156,9 @@ Determine whether to run a full analysis or incremental update.
 
  3.7. **Caveman mode:**
     - Parse `$ARGUMENTS` for `--caveman` flag. If found, set `$CAVEMAN_MODE = true`.
-    - If `--caveman` and `--review` are both present, ignore `--review` and warn the user: "Caveman mode is incompatible with --review. Ignoring --review."
+    - If `--caveman` and `--review` are both present:
+      1. Warn the user: "Caveman mode is incompatible with --review. Ignoring --review."
+      2. **Strip `--review` from `$ARGUMENTS`** before the decision logic in step 7 runs. All subsequent checks (decision-logic table, Phase 6 validation path) must behave as if `--review` was never passed.
     - Report to the user: `Caveman mode enabled — skipping function/class extraction, import resolution, and LLM architecture/tour agents.`
 
  4. **Check for subdomain knowledge graphs to merge:**
@@ -370,6 +372,9 @@ Include the script's warnings in `$PHASE_WARNINGS` for the reviewer.
 ### Incremental update path
 
 Use the changed files list from Phase 0. Batch and dispatch file-analyzer subagents using the same process as above (20-30 files per batch, up to 5 concurrent, with batchImportData constructed from $IMPORT_MAP), but only for changed files.
+
+**Caveman mode in incremental updates:** If `$CAVEMAN_MODE` is true, the same caveman overrides from the full path apply here: use larger batches (40-50 files each, aim for ~45), and append the following to each dispatch prompt:
+> **Caveman mode: ON** — See the "Caveman Mode" section in your instructions.
 
 After batches complete:
 1. Remove old nodes whose `filePath` matches any changed file from the existing graph
@@ -626,7 +631,7 @@ Assemble the full KnowledgeGraph JSON object:
 
 2. Write the assembled graph to `$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json`.
 
-3. **Check `$ARGUMENTS` for `--review` flag.** In caveman mode, always use the default (inline deterministic) path regardless of `--review`. Then run the appropriate validation path:
+3. **Check `$ARGUMENTS` for `--review` flag.** (Note: step 3.7 already strips `--review` from `$ARGUMENTS` when `$CAVEMAN_MODE` is true, so caveman runs always take the default path here.) Run the appropriate validation path:
 
 ---
 
