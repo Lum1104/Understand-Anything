@@ -1066,5 +1066,122 @@ class TestMultiPart(unittest.TestCase):
             "Found 3 batch files (2 logical batches, 1 multi-part)", stderr)
 
 
+# ── Unrecognized batch filename handling ───────────────────────────────────
+
+
+class TestUnrecognizedBatchFilename(unittest.TestCase):
+    """File-analyzer fuses multiple batches into one output (e.g.,
+    `batch-fused-8-13.json`, `batch-8-13.json`) — the merge script's regex
+    requires `batch-<N>.json` or `batch-<N>-part-<K>.json` and would
+    otherwise silently drop the contents. The script must warn loudly and
+    surface the drop in its report so the downstream review step catches it.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp(prefix="ua-mbg-unrec-"))
+        self.intermediate = self.tmp / ".understand-anything" / "intermediate"
+        self.intermediate.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self) -> None:
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write_batch(self, name: str, nodes: list, edges: list) -> None:
+        import json as _j
+        (self.intermediate / name).write_text(
+            _j.dumps({"nodes": nodes, "edges": edges}),
+            encoding="utf-8",
+        )
+
+    def _run_merge(self) -> tuple[int, str, dict]:
+        import subprocess
+        import json as _j
+        result = subprocess.run(
+            ["python3", str(_MODULE_PATH), str(self.tmp)],
+            capture_output=True, text=True,
+        )
+        out_path = self.intermediate / "assembled-graph.json"
+        assembled = _j.loads(out_path.read_text()) if out_path.exists() else {}
+        return result.returncode, result.stderr, assembled
+
+    def test_fused_filename_emits_stderr_warning(self) -> None:
+        # `batch-fused-3-5.json` does not match the merge regex —
+        # script must warn on stderr (not silently drop).
+        self._write_batch("batch-1.json", [_file_node("src/a.ts")], [])
+        self._write_batch("batch-2.json", [_file_node("src/b.ts")], [])
+        self._write_batch(
+            "batch-fused-3-5.json",
+            [_file_node("src/c.ts"), _file_node("src/d.ts"), _file_node("src/e.ts")],
+            [],
+        )
+        rc, stderr, _assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        self.assertIn("Warning: merge-batch-graphs:", stderr)
+        self.assertIn("unrecognized filenames", stderr)
+        self.assertIn("batch-fused-3-5.json", stderr)
+        # Remediation hint must be present so users know what to fix.
+        self.assertIn("file-analyzer", stderr)
+        self.assertIn("batch-<N>.json", stderr)
+
+    def test_fused_filename_surfaces_in_report(self) -> None:
+        # The merge report (printed after the per-file load lines) must
+        # also flag the drop so Phase 3 review picks it up.
+        self._write_batch("batch-1.json", [_file_node("src/a.ts")], [])
+        self._write_batch(
+            "batch-fused-2-4.json", [_file_node("src/x.ts")], [],
+        )
+        rc, stderr, _assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        # "dropped N batch file(s) with unrecognized filenames" appears in the
+        # report section (printed after "Output: ..." line).
+        self.assertIn("dropped 1 batch file(s) with unrecognized filenames", stderr)
+        self.assertIn("batch-fused-2-4.json", stderr)
+        self.assertIn(
+            "every node/edge in these files was excluded from the final graph",
+            stderr,
+        )
+
+    def test_recognized_batches_still_loaded(self) -> None:
+        # With both recognized and unrecognized files present, recognized
+        # ones must still produce a valid assembled graph.
+        self._write_batch("batch-1.json", [_file_node("src/a.ts")], [])
+        self._write_batch("batch-2.json", [_file_node("src/b.ts")], [])
+        self._write_batch(
+            "batch-fused-3-5.json",
+            [_file_node("src/dropped-c.ts")],
+            [],
+        )
+        rc, _stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        node_ids = {n["id"] for n in assembled["nodes"]}
+        # batch-1 + batch-2 survive
+        self.assertIn("file:src/a.ts", node_ids)
+        self.assertIn("file:src/b.ts", node_ids)
+        # batch-fused-3-5.json content is excluded
+        self.assertNotIn("file:src/dropped-c.ts", node_ids)
+        self.assertEqual(node_ids, {"file:src/a.ts", "file:src/b.ts"})
+
+    def test_range_filename_also_unrecognized(self) -> None:
+        # A bare range like `batch-8-13.json` is just as broken as
+        # `batch-fused-8-13.json` — both must be flagged. The regex
+        # `batch-(\d+)(?:-part-(\d+))?\.json` requires the literal
+        # `-part-` separator before a second number.
+        self._write_batch("batch-1.json", [_file_node("src/a.ts")], [])
+        self._write_batch(
+            "batch-8-13.json",
+            [_file_node("src/x.ts"), _file_node("src/y.ts")],
+            [],
+        )
+        rc, stderr, assembled = self._run_merge()
+        self.assertEqual(rc, 0)
+        self.assertIn("Warning: merge-batch-graphs:", stderr)
+        self.assertIn("batch-8-13.json", stderr)
+        # Content is dropped
+        node_ids = {n["id"] for n in assembled["nodes"]}
+        self.assertNotIn("file:src/x.ts", node_ids)
+        self.assertNotIn("file:src/y.ts", node_ids)
+
+
 if __name__ == "__main__":
     unittest.main()
