@@ -662,6 +662,52 @@ describe('extract-import-map.mjs — PHP resolver', () => {
       'src/Util/Logger.php',
     ]);
   });
+
+  it('resolves per-package composer.json PSR-4 without cross-package leakage', () => {
+    // Multi-package Composer layout (think: Symfony or Laravel-style mono
+    // with package-scoped autoload). Each package's composer.json declares
+    // its own PSR-4 namespace. Cross-package `use` should NOT resolve via
+    // a sibling's autoload — that's exactly the silent miscompile the
+    // single-root assumption would introduce.
+    projectRoot = setupTree({
+      'packages/foo/composer.json': JSON.stringify({
+        autoload: { 'psr-4': { 'App\\Foo\\': 'src/' } },
+      }),
+      'packages/foo/src/X.php':
+        `<?php\nnamespace App\\Foo;\n\nuse App\\Foo\\Y;\n` +
+        `use App\\Bar\\Z;\n` + // must NOT resolve from foo
+        `class X { }\n`,
+      'packages/foo/src/Y.php':
+        `<?php\nnamespace App\\Foo;\nclass Y { }\n`,
+      'packages/bar/composer.json': JSON.stringify({
+        autoload: { 'psr-4': { 'App\\Bar\\': 'src/' } },
+      }),
+      'packages/bar/src/Z.php':
+        `<?php\nnamespace App\\Bar;\nclass Z { }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'packages/foo/composer.json', language: 'json', fileCategory: 'config' },
+        { path: 'packages/foo/src/X.php', language: 'php', fileCategory: 'code' },
+        { path: 'packages/foo/src/Y.php', language: 'php', fileCategory: 'code' },
+        { path: 'packages/bar/composer.json', language: 'json', fileCategory: 'config' },
+        { path: 'packages/bar/src/Z.php', language: 'php', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // foo/src/X.php resolves App\Foo\Y -> packages/foo/src/Y.php only.
+    // The App\Bar\Z `use` is unresolvable from foo's perspective (foo's
+    // composer.json has no App\Bar entry).
+    expect(result.output.importMap['packages/foo/src/X.php']).toEqual([
+      'packages/foo/src/Y.php',
+    ]);
+    expect(result.output.importMap['packages/foo/src/X.php']).not.toContain(
+      'packages/bar/src/Z.php',
+    );
+  });
 });
 
 describe('extract-import-map.mjs — Rust resolver', () => {

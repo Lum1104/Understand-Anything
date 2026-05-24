@@ -298,7 +298,8 @@ function findNearestConfigDir(startDir, configMap) {
  *    `files[]`. Per-import resolution walks up from the importer to the
  *    nearest enclosing tsconfig.
  *  - goModules: Map<dir, moduleName> from every go.mod in `files[]`.
- *  - phpAutoload: PSR-4 namespace -> directory map from composer.json
+ *  - phpAutoloads: Map<dir, autoloadMap> from every composer.json in
+ *    `files[]`. Resolved paths are anchored at the composer's directory.
  *  - goFilesByDir: Map<dir, string[]> of .go files per directory (built
  *    once so Go's package-level import dispatch doesn't re-scan the file
  *    set per import).
@@ -330,7 +331,7 @@ function buildResolutionContext(projectRoot, files) {
   const kotlinIndex = buildSuffixIndex(files, p => p.endsWith('.kt'));
   const csIndex = buildSuffixIndex(files, p => p.endsWith('.cs'));
 
-  const phpAutoload = loadPhpAutoload(projectRoot);
+  const phpAutoloads = loadPhpAutoloads(projectRoot, files);
 
   return {
     projectRoot,
@@ -341,7 +342,7 @@ function buildResolutionContext(projectRoot, files) {
     javaIndex,
     kotlinIndex,
     csIndex,
-    phpAutoload,
+    phpAutoloads,
     // Dedupe Sets for one-time-per-file warnings. Keyed by importer file
     // path. Mutated by resolvers.
     _warnedNoRustCrateRoot: new Set(),
@@ -910,31 +911,23 @@ export function resolveRubyImport({ kind, source }, file, ctx) {
 // ---------------------------------------------------------------------------
 
 /**
- * Load composer.json autoload.psr-4 map. Returns Map<namespacePrefix, dir[]>
- * where the prefix is normalized to include its trailing `\` and the dir is
- * a posix path without a trailing slash. Composer allows array values for
- * multiple roots, so we normalize singletons to single-element arrays.
+ * Parse a single composer.json content and return Map<namespacePrefix,
+ * dir[]> or null if the JSON failed to parse. The returned dirs are
+ * relative to the composer.json's own directory — NOT projectRoot —
+ * matching how PSR-4 itself is specified.
  *
- * On parse failure (malformed JSON), emits a Warning: to stderr and returns
- * the empty map — PHP `use` imports will all resolve to nothing in that case
- * (no namespace mapping = no project-internal edges). This is preferable to
- * the original silent-empty path which gave no signal to the operator.
+ * Returning `null` (rather than throwing) lets the caller emit a Warning:
+ * with the exact composer.json path that failed; bubbling the error would
+ * conceal which file was at fault when many composer.json files are loaded.
  */
-function loadPhpAutoload(projectRoot) {
-  const out = new Map();
-  const path = join(projectRoot, 'composer.json');
-  if (!existsSync(path)) return out;
+function parseComposerAutoloadText(raw) {
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(path, 'utf-8'));
-  } catch (err) {
-    process.stderr.write(
-      `Warning: extract-import-map: composer.json at ${path} failed to ` +
-      `parse (${err.message}) — PSR-4 namespace mapping unavailable — ` +
-      `PHP imports will not resolve\n`,
-    );
-    return out;
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
   }
+  const out = new Map();
   const psr4 = parsed?.autoload?.['psr-4'];
   if (!psr4 || typeof psr4 !== 'object') return out;
   for (const [prefix, target] of Object.entries(psr4)) {
@@ -952,21 +945,83 @@ function loadPhpAutoload(projectRoot) {
 }
 
 /**
- * Resolve a PHP `use` FQN. Returns array (0 or 1 match — the first dir in
- * the PSR-4 target list that contains the file).
+ * Load every `composer.json` discovered in the input file list and parse
+ * each's `autoload.psr-4` section. Returns Map<dirPath, autoloadMap>
+ * keyed by the project-relative POSIX directory containing the
+ * composer.json (empty string for a root-level composer.json).
+ *
+ * WHY plural: Composer monorepos commonly stack a root composer.json over
+ * per-package composer.json files (one of the two formal "monorepo"
+ * patterns Composer documents — `wikimedia/composer-merge-plugin` and
+ * `symplify/monorepo-builder` both ship this layout). Loading only the
+ * root would miss package-scoped PSR-4 entries entirely.
+ *
+ * On parse failure for a specific composer.json, emits a Warning: pointing
+ * at the bad file and skips it. The rest of the project's PHP imports keep
+ * resolving via whichever composer.json files parsed cleanly.
  */
-export function resolvePhpImport(rawImport, _file, ctx) {
+function loadPhpAutoloads(projectRoot, files) {
+  const out = new Map();
+  for (const f of files) {
+    const p = toPosix(f.path);
+    const base = p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p;
+    if (base !== 'composer.json') continue;
+    const absPath = join(projectRoot, p);
+    if (!existsSync(absPath)) continue;
+    let raw;
+    try {
+      raw = readFileSync(absPath, 'utf-8');
+    } catch (err) {
+      process.stderr.write(
+        `Warning: extract-import-map: composer.json at ${absPath} failed ` +
+        `to read (${err.message}) — PSR-4 namespace mapping from this ` +
+        `composer.json unavailable — PHP imports under this package ` +
+        `will not resolve\n`,
+      );
+      continue;
+    }
+    const parsed = parseComposerAutoloadText(raw);
+    if (parsed === null) {
+      process.stderr.write(
+        `Warning: extract-import-map: composer.json at ${absPath} failed ` +
+        `to parse — PSR-4 namespace mapping unavailable — PHP imports ` +
+        `under this package will not resolve\n`,
+      );
+      continue;
+    }
+    out.set(dirOf(p), parsed);
+  }
+  return out;
+}
+
+/**
+ * Resolve a PHP `use` FQN against the autoload map of the importer's
+ * nearest enclosing composer.json. Returns array (0 or 1 match — the first
+ * dir in the PSR-4 target list that contains the file).
+ *
+ * Resolved paths are anchored at the composer.json's directory, NOT at
+ * projectRoot, so a sub-package's `App\Foo\Bar` resolves to
+ * `<package-dir>/src/Foo/Bar.php` rather than `<projectRoot>/src/...`.
+ * This is what Composer's autoloader actually does on disk.
+ */
+export function resolvePhpImport(rawImport, file, ctx) {
   if (!rawImport || typeof rawImport !== 'string') return [];
   // Strip leading backslash if present (PHP allows `use \Foo\Bar;`)
   const fqn = rawImport.startsWith('\\') ? rawImport.slice(1) : rawImport;
   if (!fqn) return [];
 
-  // Longest-prefix match across all autoload entries. Walk the map and pick
-  // the entry with the longest matching prefix, so `Foo\Bar` does not match
-  // a prefix `F\` if `Foo\` is also present.
+  const importerDir = dirOf(toPosix(file.path));
+  const composerDir = findNearestConfigDir(importerDir, ctx.phpAutoloads);
+  if (composerDir === undefined) return [];
+  const autoload = ctx.phpAutoloads.get(composerDir);
+  if (!autoload || autoload.size === 0) return [];
+
+  // Longest-prefix match across this composer.json's autoload entries.
+  // Walk the map and pick the entry with the longest matching prefix, so
+  // `Foo\Bar` does not match a prefix `F\` if `Foo\` is also present.
   let bestPrefix = '';
   let bestDirs = null;
-  for (const [prefix, dirs] of ctx.phpAutoload) {
+  for (const [prefix, dirs] of autoload) {
     if (fqn.startsWith(prefix) && prefix.length > bestPrefix.length) {
       bestPrefix = prefix;
       bestDirs = dirs;
@@ -974,11 +1029,18 @@ export function resolvePhpImport(rawImport, _file, ctx) {
   }
   if (!bestDirs) return [];
 
-  // Drop the prefix (it covers the directory), translate `\` to `/`
+  // Drop the prefix (it covers the directory), translate `\` to `/`.
   const relative = fqn.slice(bestPrefix.length).replace(/\\/g, '/');
   if (!relative) return [];
   for (const dir of bestDirs) {
-    const candidate = dir ? `${dir}/${relative}.php` : `${relative}.php`;
+    // Anchor at the composer.json's own directory — PSR-4 paths are
+    // composer-relative, not project-relative.
+    const dirUnderComposer = dir
+      ? (composerDir ? `${composerDir}/${dir}` : dir)
+      : composerDir;
+    const candidate = dirUnderComposer
+      ? `${dirUnderComposer}/${relative}.php`
+      : `${relative}.php`;
     if (ctx.fileSet.has(candidate)) return [candidate];
   }
   return [];
