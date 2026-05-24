@@ -81,16 +81,25 @@ describe('compute-batches.mjs — Louvain basic', () => {
 });
 
 describe('compute-batches.mjs — size enforcement', () => {
+  let projectRoot;
+
+  beforeEach(() => {
+    projectRoot = setupProject('scan-result-large-community.json');
+  });
+
+  afterEach(() => {
+    if (projectRoot) rmSync(projectRoot, { recursive: true, force: true });
+  });
+
   it('splits a 40-node clique into batches ≤ 35', () => {
-    const root = setupProject('scan-result-large-community.json');
-    const result = runScript(root);
+    const result = runScript(projectRoot);
     expect(result.status).toBe(0);
 
-    const batches = readBatches(root);
+    const batches = readBatches(projectRoot);
+    expect(batches.algorithm).toBe('louvain');  // confirm fallback didn't fire
     expect(batches.totalFiles).toBe(40);
-    for (const b of batches.batches) {
-      expect(b.files.length).toBeLessThanOrEqual(35);
-    }
+    expect(batches.batches.length).toBe(2);
+    expect(batches.batches.map(b => b.files.length).sort()).toEqual([20, 20]);
     // Sum of all batch file counts equals total files
     const sum = batches.batches.reduce((acc, b) => acc + b.files.length, 0);
     expect(sum).toBe(40);
