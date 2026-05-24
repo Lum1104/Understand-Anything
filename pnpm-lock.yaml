@@ -39,7 +39,7 @@ importers:
         specifier: workspace:*
         version: link:packages/core
       graphology:
-        specifier: ^0.26.0
+        specifier: ~0.26.0
         version: 0.26.0(graphology-types@0.24.8)
       graphology-communities-louvain:
         specifier: ^2.0.2
