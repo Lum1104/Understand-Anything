@@ -26,7 +26,7 @@ An open-source tool combining LLM intelligence + static analysis to produce inte
 
 ## Agent Pipeline
 - Agents write intermediate results to `.understand-anything/intermediate/` on disk (not returned to context)
-- Agent models: all set to `inherit` for cross-platform compatibility (Claude Code, Cursor, opencode, etc.)
+- Agent model field is omitted from frontmatter so each platform falls back to its configured default — `inherit` was a Claude Code-only keyword that opencode (and similar tools) treated as a literal model id and rejected with `ProviderModelNotFoundError` (see #167)
 - `/understand` auto-triggers `/understand-dashboard` after completion
 - Intermediate files cleaned up after graph assembly
 
