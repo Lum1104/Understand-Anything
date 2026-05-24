@@ -54,15 +54,42 @@ async function main() {
   // Run Louvain
   const communities = louvain(g);  // { nodeId: communityId }
 
-  // Group files by community id, sorted by largest first for stable assignment
+  // Group files by community id
   const filesByCommunity = new Map();
   for (const [path, cid] of Object.entries(communities)) {
     if (!filesByCommunity.has(cid)) filesByCommunity.set(cid, []);
     filesByCommunity.get(cid).push(path);
   }
 
+  // Size enforcement: split any community > MAX_COMMUNITY_SIZE.
+  // Strategy: deterministic alphabetical chunking within the oversize community.
+  // Edge-betweenness would be more modularity-aware but adds dependency surface;
+  // alphabetical chunking is deterministic, locality-preserving for co-located
+  // files, and bounded by the cap. Each sub-community gets a fresh synthetic id.
+  const MAX_COMMUNITY_SIZE = 35;
+  const splitCommunities = new Map();
+  let nextSyntheticId = 0;
+  for (const [cid, paths] of filesByCommunity) {
+    if (paths.length <= MAX_COMMUNITY_SIZE) {
+      splitCommunities.set(cid, paths);
+      continue;
+    }
+    process.stderr.write(
+      `Warning: compute-batches: community size ${paths.length} > max ${MAX_COMMUNITY_SIZE} ` +
+      `— splitting via alphabetical chunking — modularity may decrease\n`,
+    );
+    const sorted = [...paths].sort();
+    const parts = Math.ceil(paths.length / MAX_COMMUNITY_SIZE);
+    const perPart = Math.ceil(paths.length / parts);
+    for (let i = 0; i < parts; i++) {
+      const slice = sorted.slice(i * perPart, (i + 1) * perPart);
+      const synthId = `__split_${cid}_${nextSyntheticId++}`;
+      splitCommunities.set(synthId, slice);
+    }
+  }
+
   // Sort communities by size desc, then by min-path asc for determinism
-  const sortedCommunities = [...filesByCommunity.entries()]
+  const sortedCommunities = [...splitCommunities.entries()]
     .sort((a, b) => {
       if (b[1].length !== a[1].length) return b[1].length - a[1].length;
       const minA = [...a[1]].sort()[0];

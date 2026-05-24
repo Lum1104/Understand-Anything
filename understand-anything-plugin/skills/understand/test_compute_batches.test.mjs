@@ -79,3 +79,22 @@ describe('compute-batches.mjs — Louvain basic', () => {
     expect(json1).toBe(json2);
   });
 });
+
+describe('compute-batches.mjs — size enforcement', () => {
+  it('splits a 40-node clique into batches ≤ 35', () => {
+    const root = setupProject('scan-result-large-community.json');
+    const result = runScript(root);
+    expect(result.status).toBe(0);
+
+    const batches = readBatches(root);
+    expect(batches.totalFiles).toBe(40);
+    for (const b of batches.batches) {
+      expect(b.files.length).toBeLessThanOrEqual(35);
+    }
+    // Sum of all batch file counts equals total files
+    const sum = batches.batches.reduce((acc, b) => acc + b.files.length, 0);
+    expect(sum).toBe(40);
+    // Warning was emitted to stderr
+    expect(result.stderr).toMatch(/Warning: compute-batches: community size 40 > max 35/);
+  });
+});
