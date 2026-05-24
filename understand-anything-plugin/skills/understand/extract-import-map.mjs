@@ -449,11 +449,9 @@ export function resolvePythonImport(rawImport, specifiers, file, ctx) {
     return resolvePythonProbe(moduleParts, specifiers, ctx);
   }
 
-  // Absolute. Walk through each successive prefix from longest to shortest.
-  // This is necessary because `from a.b import c` should probe `a/b.py` first
-  // (with c as a specifier), not just `a/b/c.py`. But we ALSO need to handle
-  // the case where `a.b` is itself a module path (no specifier dimension at
-  // all, as with bare `import a.b`).
+  // Absolute import. `tailSegments` is the dotted module path; resolve
+  // against `<segments>.py` or `<segments>/__init__.py`, and (on a package
+  // match) also probe each specifier as a submodule. See resolvePythonProbe.
   return resolvePythonProbe(tailSegments, specifiers, ctx);
 }
 
@@ -826,22 +824,18 @@ function probeRustModule(base, fileSet) {
  * this is the directory containing `src/lib.rs` or `src/main.rs`. For nested
  * workspaces, walk up from the importer until a `src/` ancestor is found.
  * Returns the path relative to project root, or null if not found.
+ *
+ * The loop walks every ancestor directory (including the root) and probes
+ * `<ancestor>/src/lib.rs` and `<ancestor>/src/main.rs`. We don't need a
+ * separate "candidate ends with src" branch — when the importer is itself
+ * inside `src/`, the next iteration up reaches the package dir and the
+ * `<package>/src/lib.rs` probe catches it.
  */
 function findRustCrateSrc(importerDir, fileSet) {
-  // Walk up the importer's directory chain, looking for a `src` segment
-  // that contains lib.rs or main.rs.
   const parts = importerDir.split('/').filter(Boolean);
   for (let i = parts.length; i >= 0; i--) {
-    const candidate = parts.slice(0, i).join('/');
-    // candidate ends at any path level; check if it ends with 'src' OR has
-    // an immediate child src/ that contains the crate roots.
-    if (parts[i - 1] === 'src') {
-      if (fileSet.has(`${candidate}/lib.rs`) || fileSet.has(`${candidate}/main.rs`)) {
-        return candidate;
-      }
-    }
-    // Also probe candidate+'/src'
-    const childSrc = candidate ? `${candidate}/src` : 'src';
+    const ancestor = parts.slice(0, i).join('/');
+    const childSrc = ancestor ? `${ancestor}/src` : 'src';
     if (fileSet.has(`${childSrc}/lib.rs`) || fileSet.has(`${childSrc}/main.rs`)) {
       return childSrc;
     }
