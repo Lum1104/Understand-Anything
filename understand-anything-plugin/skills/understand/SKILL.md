@@ -1,7 +1,7 @@
 ---
 name: understand
 description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships
-argument-hint: ["[path] [--full|--auto-update|--no-auto-update|--review|--language <lang>]"]
+argument-hint: ["[path] [--full|--caveman|--auto-update|--no-auto-update|--review|--language <lang>]"]
 ---
 
 # /understand
@@ -12,6 +12,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in `.unde
 
 - `$ARGUMENTS` may contain:
   - `--full` — Force a full rebuild, ignoring any existing graph
+  - `--caveman` — Reduced-token mode (~65-70% fewer tokens). Skips function/class extraction, import resolution, and LLM-based architecture/tour agents. Produces a file-level-only graph with deterministic layers and tour. Ideal for quick overviews or large codebases. Incompatible with `--review` (caveman mode ignores `--review` if both are passed).
   - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `.understand-anything/config.json`)
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `.understand-anything/config.json`)
   - `--review` — Run full LLM graph-reviewer instead of inline deterministic validation
@@ -28,6 +29,9 @@ Throughout execution, report progress to the user at each phase transition and d
   > `[Phase N/7] <phase name>...`
   >
   > Example: `[Phase 2/7] Analyzing files (12 batches)...`
+  >
+  > In caveman mode, skipped phases should still be numbered but reported as skipped:
+  > Example: `[Phase 3/7] Skipped (caveman mode).`
 
 - **Batch progress:** During Phase 2, report each batch with its index and total:
   > `Analyzing batch X/N (files: foo.ts, bar.ts, ...)` (list up to 3 filenames, then `...` if more)
@@ -150,6 +154,11 @@ Determine whether to run a full analysis or incremental update.
       > **Language directive**: Generate all textual content (summaries, descriptions, tags, titles, languageNotes, languageLesson) in **{language}**. Maintain technical accuracy while using natural, native-level phrasing in the target language. Keep technical terms in English when no standard translation exists (e.g., "middleware", "hook", "barrel").
       ```
 
+ 3.7. **Caveman mode:**
+    - Parse `$ARGUMENTS` for `--caveman` flag. If found, set `$CAVEMAN_MODE = true`.
+    - If `--caveman` and `--review` are both present, ignore `--review` and warn the user: "Caveman mode is incompatible with --review. Ignoring --review."
+    - Report to the user: `Caveman mode enabled — skipping function/class extraction, import resolution, and LLM architecture/tour agents.`
+
  4. **Check for subdomain knowledge graphs to merge:**
    List all `*knowledge-graph*.json` files in `$PROJECT_ROOT/.understand-anything/` **excluding** `knowledge-graph.json` itself (e.g. `frontend-knowledge-graph.json`, `backend-knowledge-graph.json`). If any subdomain graphs exist, run the merge script bundled with this skill (located next to this SKILL.md file — use the skill directory path, not the project root):
    ```bash
@@ -222,11 +231,11 @@ Set up and verify the `.understandignore` file before scanning.
      ```
    - Report to the user:
      > Generated `.understand-anything/.understandignore` with suggested exclusions based on your project structure. Please review it and uncomment any patterns you'd like to exclude from analysis. When ready, confirm to continue.
-   - **Wait for user confirmation before proceeding.**
+   - **Wait for user confirmation before proceeding.** (Skip this wait if `$CAVEMAN_MODE` is true — use defaults silently.)
 3. **If it already exists**, report:
    > Found `.understand-anything/.understandignore`. Review it if needed, then confirm to continue.
-   - **Wait for user confirmation before proceeding.**
-4. After confirmation, proceed to Phase 1.
+   - **Wait for user confirmation before proceeding.** (Skip this wait if `$CAVEMAN_MODE` is true — proceed immediately.)
+4. After confirmation (or immediately if `$CAVEMAN_MODE`), proceed to Phase 1.
 
 ---
 
@@ -258,14 +267,17 @@ Pass these parameters in the dispatch prompt:
 > Project root: `$PROJECT_ROOT`
 > Write output to: `$PROJECT_ROOT/.understand-anything/intermediate/scan-result.json`
 
+**Caveman mode addition:** If `$CAVEMAN_MODE` is true, append to the dispatch prompt:
+> **Skip import resolution.** Do not resolve import maps. Set `importMap` to an empty object `{}` in the output JSON. This saves significant processing time.
+
 After the subagent completes, read `$PROJECT_ROOT/.understand-anything/intermediate/scan-result.json` to get:
 - Project name, description
 - Languages, frameworks
 - File list with line counts and `fileCategory` per file (`code`, `config`, `docs`, `infra`, `data`, `script`, `markup`)
 - Complexity estimate
-- Import map (`importMap`): pre-resolved project-internal imports per file (non-code files have empty arrays)
+- Import map (`importMap`): pre-resolved project-internal imports per file (non-code files have empty arrays). **In caveman mode this is `{}`.**
 
-Store `importMap` in memory as `$IMPORT_MAP` for use in Phase 2 batch construction.
+Store `importMap` in memory as `$IMPORT_MAP` for use in Phase 2 batch construction. (In caveman mode, `$IMPORT_MAP = {}`.)
 Store the file list as `$FILE_LIST` with `fileCategory` metadata for use in Phase 2 batch construction.
 
 **Gate check:** If >100 files, inform the user and suggest scoping with a subdirectory argument. Proceed only if user confirms or add guidance that this may take a while.
@@ -279,7 +291,7 @@ If the scan result includes `filteredByIgnore > 0`, report:
 
 ### Full analysis path
 
-Batch the file list from Phase 1 into groups of **20-30 files each** (aim for ~25 files per batch for balanced sizes).
+Batch the file list from Phase 1 into groups of **20-30 files each** (aim for ~25 files per batch for balanced sizes). **In caveman mode:** use larger batches of **40-50 files each** (aim for ~45) since per-file work is reduced.
 
 **Batching strategy for non-code files:**
 - Group related non-code files together in the same batch when possible:
@@ -330,6 +342,9 @@ Fill in batch-specific parameters below and dispatch:
 > 2. `<path>` (<sizeLines> lines, language: `<language>`, fileCategory: `<fileCategory>`)
 > ...
 
+**Caveman mode addition:** If `$CAVEMAN_MODE` is true, append to the dispatch prompt:
+> **Caveman mode: ON** — See the "Caveman Mode" section in your instructions.
+
 After ALL batches complete, report to the user: `Phase 2 complete. All <totalBatches> batches analyzed.`
 
 Run the merge-and-normalize script bundled with this skill (located next to this SKILL.md file — use the skill directory path, not the project root):
@@ -369,6 +384,8 @@ After batches complete:
 
 ## Phase 3 — ASSEMBLE REVIEW
 
+**Caveman mode:** If `$CAVEMAN_MODE` is true, skip this entire phase. Report to the user: `[Phase 3/7] Skipped (caveman mode).` and proceed to Phase 4. The merge script's deterministic fixes are sufficient without LLM review when there are no import edges or function/class nodes to verify.
+
 Report to the user: `[Phase 3/7] Reviewing assembled graph...`
 
 Dispatch a subagent using the `assemble-reviewer` agent definition (at `agents/assemble-reviewer.md`).
@@ -398,7 +415,17 @@ After the subagent completes, read `$PROJECT_ROOT/.understand-anything/intermedi
 
 Report to the user: `[Phase 4/7] Identifying architectural layers...`
 
-**Build the combined prompt template:**
+**Caveman mode:** If `$CAVEMAN_MODE` is true, replace the LLM architecture-analyzer with the deterministic layer assignment script:
+
+```bash
+node <SKILL_DIR>/assign-layers-simple.mjs \
+  "$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json" \
+  "$PROJECT_ROOT/.understand-anything/intermediate/layers.json"
+```
+
+Read `$PROJECT_ROOT/.understand-anything/intermediate/layers.json` as the `layers` array. The script groups files by directory patterns and node types — no LLM needed. Skip the rest of this phase and proceed to Phase 5.
+
+**Full mode (non-caveman) — Build the combined prompt template:**
  1. Use the `architecture-analyzer` agent definition (at `agents/architecture-analyzer.md`).
  2. **Language context injection:** For each language detected in Phase 1 (e.g., `python`, `markdown`, `dockerfile`, `yaml`, `sql`, `terraform`, `graphql`, `protobuf`, `shell`, `html`, `css`), read the file at `./languages/<language-id>.md` (e.g., `./languages/python.md`, `./languages/dockerfile.md`) and append its content after the base template under a `## Language Context` header. If the file does not exist for a detected language, skip it silently and continue. These files are in the `languages/` subdirectory next to this SKILL.md file. **Include non-code language snippets** — they provide edge patterns and summary styles for non-code files.
  3. **Framework addendum injection:** For each framework detected in Phase 1 (e.g., `Django`), read the file at `./frameworks/<framework-id-lowercase>.md` (e.g., `./frameworks/django.md`) and append its full content after the language context. If the file does not exist for a detected framework, skip it silently and continue. These files are in the `frameworks/` subdirectory next to this SKILL.md file.
@@ -480,6 +507,20 @@ All four fields (`id`, `name`, `description`, `nodeIds`) are required.
 ## Phase 5 — TOUR
 
 Report to the user: `[Phase 5/7] Building guided tour...`
+
+**Caveman mode:** If `$CAVEMAN_MODE` is true, replace the LLM tour-builder with the deterministic stub tour generator:
+
+```bash
+node <SKILL_DIR>/generate-tour-stub.mjs \
+  "$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json" \
+  "$PROJECT_ROOT/.understand-anything/intermediate/layers.json" \
+  "$PROJECT_ROOT/.understand-anything/intermediate/tour.json" \
+  "$ENTRY_POINT"
+```
+
+Read `$PROJECT_ROOT/.understand-anything/intermediate/tour.json` as the `tour` array. The script generates a 5-7 step tour from README, entry point, and key layers — no LLM needed. Skip the rest of this phase and proceed to Phase 6.
+
+**Full mode (non-caveman):**
 
 Dispatch a subagent using the `tour-builder` agent definition (at `agents/tour-builder.md`). Append the following additional context:
 
@@ -585,7 +626,7 @@ Assemble the full KnowledgeGraph JSON object:
 
 2. Write the assembled graph to `$PROJECT_ROOT/.understand-anything/intermediate/assembled-graph.json`.
 
-3. **Check `$ARGUMENTS` for `--review` flag.** Then run the appropriate validation path:
+3. **Check `$ARGUMENTS` for `--review` flag.** In caveman mode, always use the default (inline deterministic) path regardless of `--review`. Then run the appropriate validation path:
 
 ---
 
@@ -758,6 +799,7 @@ Report to the user: `[Phase 7/7] Saving knowledge graph...`
    ```
 
 5. Report a summary to the user containing:
+   - **If caveman mode:** A note at the top: `Analysis mode: caveman (reduced tokens). Run /understand without --caveman for full analysis with function-level detail, import edges, and LLM-curated layers/tour.`
    - Project name and description
    - Files analyzed / total files (with breakdown by fileCategory: code, config, docs, infra, data, script, markup)
    - Nodes created (broken down by type: file, function, class, config, document, service, table, endpoint, pipeline, schema, resource)
