@@ -68,9 +68,28 @@ Start the Understand Anything dashboard to visualize the knowledge graph for the
    fi
    ```
 
-4. Install dependencies and build if needed:
+4. Install dependencies and build if needed. First make `pnpm` visible to the Bash tool even on macOS/zsh installs where `pnpm setup` only updated `~/.zprofile`:
    ```bash
-   cd <dashboard-dir> && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+   if ! command -v pnpm >/dev/null 2>&1; then
+     export PNPM_HOME="${PNPM_HOME:-$HOME/Library/pnpm}"
+     export PATH="$PNPM_HOME:$HOME/.local/share/pnpm:$PATH"
+   fi
+
+   if ! command -v pnpm >/dev/null 2>&1 && command -v corepack >/dev/null 2>&1; then
+     corepack enable >/dev/null 2>&1 || true
+   fi
+
+   if ! command -v pnpm >/dev/null 2>&1; then
+     echo "Error: pnpm was not found in this shell."
+     echo "Install Node.js >= 22 and pnpm >= 10, then re-run /understand-dashboard."
+     echo "On macOS with zsh, pnpm may be installed but only exported from ~/.zprofile; restart your CLI/IDE or ensure PNPM_HOME is on PATH."
+     exit 1
+   fi
+   ```
+
+   Then install:
+   ```bash
+   cd <dashboard-dir> && (pnpm install --frozen-lockfile 2>/dev/null || pnpm install)
    ```
    Then ensure the core package is built (the dashboard depends on it):
    ```bash
@@ -79,7 +98,7 @@ Start the Understand Anything dashboard to visualize the knowledge graph for the
 
 5. Start the Vite dev server pointing at the project's knowledge graph:
    ```bash
-   cd <dashboard-dir> && GRAPH_DIR=<project-dir> npx vite --host 127.0.0.1
+   cd <dashboard-dir> && GRAPH_DIR=<project-dir> pnpm exec vite --host 127.0.0.1
    ```
    Run this in the background so the user can continue working.
 

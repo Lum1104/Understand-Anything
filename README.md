@@ -202,6 +202,7 @@ The installer clones the repo to `~/.understand-anything/repo` and creates the r
 - Supported `<platform>` values: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`
 - Update later: `./install.sh --update`
 - Uninstall: `./install.sh --uninstall <platform>`
+- macOS/zsh note: `/understand` and `/understand-dashboard` run setup commands through an agent Bash tool. If `pnpm setup` only added `PNPM_HOME` to `~/.zprofile`, restart your CLI/IDE after installing pnpm so Bash sees the updated `PATH`. The plugin also checks the standard pnpm locations automatically.
 
 ### Cursor
 

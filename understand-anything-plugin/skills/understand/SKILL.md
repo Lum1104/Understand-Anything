@@ -113,12 +113,28 @@ Determine whether to run a full analysis or incremental update.
      exit 1
    fi
 
+   if ! command -v pnpm >/dev/null 2>&1; then
+     export PNPM_HOME="${PNPM_HOME:-$HOME/Library/pnpm}"
+     export PATH="$PNPM_HOME:$HOME/.local/share/pnpm:$PATH"
+   fi
+
+   if ! command -v pnpm >/dev/null 2>&1 && command -v corepack >/dev/null 2>&1; then
+     corepack enable >/dev/null 2>&1 || true
+   fi
+
+   if ! command -v pnpm >/dev/null 2>&1; then
+     echo "Error: pnpm was not found in this shell."
+     echo "Install Node.js >= 22 and pnpm >= 10, then re-run /understand."
+     echo "On macOS with zsh, pnpm may be installed but only exported from ~/.zprofile; restart your CLI/IDE or ensure PNPM_HOME is on PATH."
+     exit 1
+   fi
+
    if [ ! -f "$PLUGIN_ROOT/packages/core/dist/index.js" ]; then
      cd "$PLUGIN_ROOT" && (pnpm install --frozen-lockfile 2>/dev/null || pnpm install) && pnpm --filter @understand-anything/core build
    fi
    ```
 
-   If `pnpm` is missing, report to the user: "Install Node.js ≥ 22 and pnpm ≥ 10, then re-run `/understand`."
+   If `pnpm` is missing, report the error from the pre-flight output. Do not try to source `~/.zprofile` from Bash; it may contain zsh-only syntax.
 
 2. Get the current git commit hash:
    ```bash
