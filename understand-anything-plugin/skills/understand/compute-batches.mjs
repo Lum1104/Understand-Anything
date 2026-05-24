@@ -243,7 +243,12 @@ function countBasedAssignment(codeFiles, batchSize = 12) {
  * keepers first preserving their relative order, misc batches appended).
  */
 function mergeSmallBatches(bareBatches) {
+  // MIN_BATCH_SIZE=3: below this, file-analyzer dispatch overhead (subagent
+  // spin-up, prompt setup) dwarfs the per-file analysis cost — not worth a
+  // standalone batch.
   const MIN_BATCH_SIZE = 3;
+  // MAX_MERGE_TARGET=25: stays below MAX_COMMUNITY_SIZE=35 so the misc-batch
+  // agent retains headroom for neighborMap context without overflowing.
   const MAX_MERGE_TARGET = 25;
 
   const keepers = [];

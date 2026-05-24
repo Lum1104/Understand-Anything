@@ -505,22 +505,66 @@ describe('compute-batches.mjs — merge-small', () => {
     expect(batches.totalFiles).toBe(100);
 
     // Without merge: 100 singletons → 100 batches.
-    // With merge-small (MAX_MERGE_TARGET=25): 100 / 25 = 4 misc batches.
-    expect(batches.batches.length).toBeLessThanOrEqual(8);
-    expect(batches.batches.length).toBeGreaterThanOrEqual(4);
+    // With merge-small (MAX_MERGE_TARGET=25): ceil(100 / 25) = exactly 4 misc
+    // batches. Pin the exact count — a loose >=4 && <=8 would mask off-by-one
+    // regressions in the slice math (e.g., a stride miscalculation that
+    // splintered the pool into 5-7 underfull buckets).
+    expect(batches.batches.length).toBe(4);
 
     // All files accounted for
     const totalAssigned = batches.batches.reduce((sum, b) => sum + b.files.length, 0);
     expect(totalAssigned).toBe(100);
 
-    // Each batch (except potentially the last) should be ≤ MAX_MERGE_TARGET=25
+    // Bucket-fullness check: 100 singletons evenly divisible by
+    // MAX_MERGE_TARGET=25, so every bucket must be exactly 25 — not just
+    // ≤ 25. Drift toward [25, 25, 25, 24, 1] etc. would slip past a
+    // ≤25 bound while indicating a stride bug.
     for (const b of batches.batches) {
-      expect(b.files.length).toBeLessThanOrEqual(25);
+      expect(b.files.length).toBe(25);
     }
 
     // Warning emitted
     expect(result.stderr).toMatch(
       /Warning: compute-batches: merged \d+ small batches \(\d+ files\) into \d+ misc batches/);
+  });
+
+  it('preserves non-mergeable batches: Dockerfile cluster not pooled into misc', () => {
+    // Dedicated fixture: 30 isolated TS singletons + 1 Dockerfile-only cluster.
+    // Group A marks the Dockerfile batch mergeable=false; even though its size
+    // (1) is below MIN_BATCH_SIZE=3, mergeSmallBatches must leave it intact.
+    const altRoot = setupProject('scan-result-merge-respects-non-mergeable.json');
+    try {
+      const result = runScript(altRoot);
+      expect(result.status).toBe(0);
+
+      const out = readBatches(altRoot);
+      expect(out.totalFiles).toBe(31);
+
+      const dockerBatch = out.batches.find(b =>
+        b.files.some(f => f.path === 'services/api/Dockerfile'));
+      expect(dockerBatch).toBeDefined();
+      // Standalone: exactly the Dockerfile, nothing pooled in alongside it.
+      expect(dockerBatch.files.length).toBe(1);
+      expect(dockerBatch.files[0].path).toBe('services/api/Dockerfile');
+
+      // The TS singletons must still merge into at least one misc batch —
+      // and that misc batch must NOT contain the Dockerfile.
+      const miscBatches = out.batches.filter(b =>
+        b.files.some(f => f.path.startsWith('src/leaf')));
+      expect(miscBatches.length).toBeGreaterThanOrEqual(1);
+      for (const m of miscBatches) {
+        for (const f of m.files) {
+          expect(f.path).not.toBe('services/api/Dockerfile');
+        }
+      }
+
+      // Every TS singleton accounted for across the misc bucket(s).
+      const tsInMisc = miscBatches.flatMap(b => b.files.map(f => f.path))
+        .filter(p => p.startsWith('src/leaf'));
+      expect(tsInMisc.length).toBe(30);
+    } finally {
+      rmSync(altRoot, { recursive: true, force: true });
+    }
   });
 });
 
