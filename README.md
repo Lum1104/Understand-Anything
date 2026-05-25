@@ -117,6 +117,15 @@ Point `/understand-knowledge` at a [Karpathy-pattern LLM wiki](https://gist.gith
 
 A multi-agent pipeline scans your project, extracts every file, function, class, and dependency, then builds a knowledge graph saved to `.understand-anything/knowledge-graph.json`.
 
+**Constrained local model?** Limit parallel subagents during analysis:
+
+```bash
+# Fully serial execution (best for small local LLMs)
+/understand --max-subagents 1
+
+# Default is 5, allowed range is 1..5
+```
+
 **Localized output:** Use `--language` to generate content in your preferred language:
 
 ```bash

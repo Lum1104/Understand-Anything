@@ -1,7 +1,7 @@
 ---
 name: understand
 description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships
-argument-hint: ["[path] [--full|--auto-update|--no-auto-update|--review|--language <lang>]"]
+argument-hint: ["[path] [--full|--auto-update|--no-auto-update|--review|--language <lang>|--max-subagents <n>]"]
 ---
 
 # /understand
@@ -15,6 +15,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in `.unde
   - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `.understand-anything/config.json`)
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `.understand-anything/config.json`)
   - `--review` — Run full LLM graph-reviewer instead of inline deterministic validation
+  - `--max-subagents <n>` — Cap concurrent subagent dispatches for batch analysis. Use `1` for fully serial execution (best for local/smaller LLMs). Allowed range: `1..5`. Default: `5`.
   - `--language <lang>` — Generate all textual content (summaries, descriptions, tags, titles, languageNotes, languageLesson) in the specified language. Accepts ISO 639-1 codes (`zh`, `ja`, `ko`, `en`, `es`, `fr`, `de`, etc.) or friendly names (`chinese`, `japanese`, `korean`, `english`, `spanish`, etc.). Locale variants supported: `zh-TW`, `zh-HK`, etc. Defaults to `en` (English). Stores preference in `.understand-anything/config.json` for consistency across incremental updates.
   - A directory path (e.g. `/path/to/repo` or `../other-project`) — Analyze the given directory instead of the current working directory
 
@@ -133,6 +134,17 @@ Determine whether to run a full analysis or incremental update.
     - If `--auto-update` is in `$ARGUMENTS`: write `{"autoUpdate": true}` to `$PROJECT_ROOT/.understand-anything/config.json`
     - If `--no-auto-update` is in `$ARGUMENTS`: write `{"autoUpdate": false}` to `$PROJECT_ROOT/.understand-anything/config.json`
     - These flags only set the config — analysis proceeds normally regardless.
+
+ 3.55. **Concurrency configuration (`--max-subagents`)**:
+    - Parse `$ARGUMENTS` for `--max-subagents <n>`.
+    - If provided, parse `<n>` as an integer. If parsing fails, default to `5` and warn the user.
+    - Clamp to range `1..5`:
+      - `<1` → use `1`
+      - `>5` → use `5`
+    - Store as `$MAX_SUBAGENTS` for all batch-dispatch phases.
+    - If not provided, set `$MAX_SUBAGENTS=5`.
+    - Report the effective setting once during pre-flight, e.g.:
+      - `[understand] Batch concurrency: $MAX_SUBAGENTS subagent(s)`
 
  3.6. **Language configuration:**
     - Parse `$ARGUMENTS` for `--language <lang>` flag. If found, extract the language code.
@@ -298,9 +310,9 @@ If the script exits non-zero, the failure is hard — relay the full stderr to t
 
 Load `.understand-anything/intermediate/batches.json` (produced by Phase 1.5). Iterate the `batches[]` array.
 
-Report: `[Phase 2/7] Analyzing files — <totalFiles> files in <totalBatches> batches (up to 5 concurrent)...`
+Report: `[Phase 2/7] Analyzing files — <totalFiles> files in <totalBatches> batches (up to $MAX_SUBAGENTS concurrent)...`
 
-For each batch, dispatch a subagent using the `file-analyzer` agent definition (at `agents/file-analyzer.md`). Run up to **5 subagents concurrently**. Append the following additional context:
+For each batch, dispatch a subagent using the `file-analyzer` agent definition (at `agents/file-analyzer.md`). Run up to **$MAX_SUBAGENTS subagents concurrently**. If `$MAX_SUBAGENTS=1`, run batches strictly sequentially. Append the following additional context:
 
 > **Additional context from main session:**
 >
