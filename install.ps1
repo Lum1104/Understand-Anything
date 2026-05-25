@@ -31,6 +31,7 @@ $Platforms = [ordered]@{
     gemini      = @{ Target = (Join-Path $HOME '.agents\skills');             Style = 'per-skill' }
     codex       = @{ Target = (Join-Path $HOME '.agents\skills');             Style = 'per-skill' }
     opencode    = @{ Target = (Join-Path $HOME '.agents\skills');             Style = 'per-skill' }
+    astraflow   = @{ Target = (Join-Path $HOME '.agents\skills');             Style = 'per-skill' }
     pi          = @{ Target = (Join-Path $HOME '.agents\skills');             Style = 'per-skill' }
     openclaw    = @{ Target = (Join-Path $HOME '.openclaw\skills');           Style = 'folder' }
     antigravity = @{ Target = (Join-Path $HOME '.gemini\antigravity\skills'); Style = 'folder' }

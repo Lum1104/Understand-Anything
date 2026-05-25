@@ -31,6 +31,7 @@ platforms_table() {
 gemini|$HOME/.agents/skills|per-skill
 codex|$HOME/.agents/skills|per-skill
 opencode|$HOME/.agents/skills|per-skill
+astraflow|$HOME/.agents/skills|per-skill
 pi|$HOME/.agents/skills|per-skill
 openclaw|$HOME/.openclaw/skills|folder
 antigravity|$HOME/.gemini/antigravity/skills|folder

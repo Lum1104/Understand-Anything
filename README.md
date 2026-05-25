@@ -3,7 +3,7 @@
 <p align="center">
   <strong>Turn any codebase, knowledge base, or docs into an interactive knowledge graph you can explore, search, and ask questions about.</strong>
   <br />
-  <em>Works with Claude Code, Codex, Cursor, Copilot, Gemini CLI, and more.</em>
+  <em>Works with Claude Code, Codex, Cursor, Copilot, Gemini CLI, Astraflow, and more.</em>
 </p>
 
 <p align="center">
@@ -24,6 +24,7 @@
   <a href="#gemini-cli"><img src="https://img.shields.io/badge/Gemini_CLI-4285F4" alt="Gemini CLI" /></a>
   <a href="#opencode"><img src="https://img.shields.io/badge/OpenCode-38bdf8" alt="OpenCode" /></a>
   <a href="#mistral-vibe-cli"><img src="https://img.shields.io/badge/Vibe_CLI-7c3aed" alt="Vibe CLI" /></a>
+  <a href="#astraflow"><img src="https://img.shields.io/badge/Astraflow-0052D9" alt="Astraflow" /></a>
   <a href="https://understand-anything.com"><img src="https://img.shields.io/badge/Homepage-d4a574" alt="Homepage" /></a>
   <a href="https://understand-anything.com/demo/"><img src="https://img.shields.io/badge/Live_Demo-00c853" alt="Live Demo" /></a>
 </p>
@@ -190,6 +191,8 @@ Understand-Anything works across multiple AI coding platforms.
 curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash
 # or skip the prompt by passing the platform:
 curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash -s codex
+# or for Astraflow:
+curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash -s astraflow
 ```
 
 **Windows (PowerShell):**
@@ -199,7 +202,7 @@ iwr -useb https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/ins
 
 The installer clones the repo to `~/.understand-anything/repo` and creates the right symlinks for the chosen platform. Restart your CLI/IDE afterwards.
 
-- Supported `<platform>` values: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`
+- Supported `<platform>` values: `gemini`, `codex`, `opencode`, `astraflow`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`
 - Update later: `./install.sh --update`
 - Uninstall: `./install.sh --uninstall <platform>`
 
@@ -239,6 +242,7 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Hermes | ✅ Supported | `install.sh hermes` |
 | Cline | ✅ Supported | `install.sh cline` |
 | KIMI CLI | ✅ Supported | `install.sh kimi` |
+| Astraflow | ✅ Supported | `install.sh astraflow` |
 
 ---
 
