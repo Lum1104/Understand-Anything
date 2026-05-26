@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Highlight, themes } from "prism-react-renderer";
 import { useDashboardStore } from "../store";
 import { useI18n } from "../contexts/I18nContext";
+import { buildGuideLines, type GuideLine } from "../utils/guideAnnotations";
 
 interface CodeViewerProps {
   accessToken: string;
@@ -22,6 +23,10 @@ type SourceState =
   | { status: "idle" | "loading"; source: null; error: null }
   | { status: "loaded"; source: SourceFile; error: null }
   | { status: "error"; source: null; error: string };
+
+type GuideRenderState =
+  | { status: "idle" | "pending"; lines: GuideLine[] }
+  | { status: "ready"; lines: GuideLine[] };
 
 function fileContentUrl(filePath: string, token: string): string {
   const params = new URLSearchParams({ token, path: filePath });
@@ -64,6 +69,7 @@ export default function CodeViewer({
 }: CodeViewerProps) {
   const graph = useDashboardStore((s) => s.graph);
   const domainGraph = useDashboardStore((s) => s.domainGraph);
+  const guideAnnotationsByNodeId = useDashboardStore((s) => s.guideAnnotationsByNodeId);
   const viewMode = useDashboardStore((s) => s.viewMode);
   const codeViewerNodeId = useDashboardStore((s) => s.codeViewerNodeId);
   const closeCodeViewer = useDashboardStore((s) => s.closeCodeViewer);
@@ -78,6 +84,10 @@ export default function CodeViewer({
     status: "idle",
     source: null,
     error: null,
+  });
+  const [guideRenderState, setGuideRenderState] = useState<GuideRenderState>({
+    status: "idle",
+    lines: [],
   });
   const { t } = useI18n();
 
@@ -124,6 +134,54 @@ export default function CodeViewer({
     return { start: node.lineRange[0], end: node.lineRange[1] };
   }, [node?.lineRange]);
 
+  const source = state.source;
+  const language = source?.language ?? fallbackLanguage(node?.filePath);
+  const guideAnnotations = useMemo(
+    () => (node ? guideAnnotationsByNodeId.get(node.id) ?? [] : []),
+    [guideAnnotationsByNodeId, node],
+  );
+  const hasInlineGuide = guideAnnotations.length > 0;
+
+  useEffect(() => {
+    if (!source || !node || !hasInlineGuide) {
+      setGuideRenderState({ status: "idle", lines: [] });
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    setGuideRenderState({ status: "pending", lines: [] });
+
+    const resolveGuideLines = () => {
+      const nextLines = buildGuideLines(
+        source.content,
+        language,
+        guideAnnotations,
+      );
+      if (!cancelled) {
+        setGuideRenderState({ status: "ready", lines: nextLines });
+      }
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(resolveGuideLines, { timeout: 500 });
+    } else {
+      timeoutId = window.setTimeout(resolveGuideLines, 0);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== null) idleWindow.cancelIdleCallback?.(idleId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, [source, language, node, hasInlineGuide, guideAnnotations]);
+
   if (!node) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-surface">
@@ -132,13 +190,14 @@ export default function CodeViewer({
     );
   }
 
-  const source = state.source;
-  const language = source?.language ?? fallbackLanguage(node.filePath);
   const lineInfo = highlightedRange
     ? `${t.codeViewer.lines} ${highlightedRange.start}-${highlightedRange.end}`
     : t.codeViewer.fullFile;
   const isModal = presentation === "modal";
   const handleClose = onClose ?? closeCodeViewer;
+  const shouldRenderGuide = hasInlineGuide && guideRenderState.status === "ready";
+  const guideLines = shouldRenderGuide ? guideRenderState.lines : [];
+  const guideCode = shouldRenderGuide ? guideLines.map((line) => line.text).join("\n") : "";
 
   return (
     <div className="h-full w-full flex flex-col bg-surface overflow-hidden">
@@ -212,9 +271,12 @@ export default function CodeViewer({
           <>
             <div className="px-4 py-2 border-b border-border-subtle bg-surface text-[11px] text-text-muted flex items-center justify-between">
               <span>{source.lineCount} {t.codeViewer.linesLabel}</span>
+              {hasInlineGuide && guideRenderState.status === "pending" && (
+                <span>{t.codeViewer.resolvingAnnotations}</span>
+              )}
               <span>{formatBytes(source.sizeBytes)}</span>
             </div>
-            <Highlight code={source.content} language={language} theme={themes.vsDark}>
+            <Highlight code={shouldRenderGuide ? guideCode : source.content} language={language} theme={themes.vsDark}>
               {({ className, style, tokens, getLineProps, getTokenProps }) => (
                 <pre
                   className={`${className} min-w-max p-0 m-0 ${
@@ -223,22 +285,26 @@ export default function CodeViewer({
                   style={{ ...style, background: "transparent" }}
                 >
                   {tokens.map((line, index) => {
-                    const lineNumber = index + 1;
+                    const guideLine = shouldRenderGuide ? guideLines[index] : null;
+                    const lineNumber = guideLine?.lineNumber ?? index + 1;
                     const isHighlighted =
+                      !guideLine?.isGuideComment &&
                       highlightedRange !== null &&
                       lineNumber >= highlightedRange.start &&
                       lineNumber <= highlightedRange.end;
                     const lineProps = getLineProps({ line });
                     return (
                       <div
-                        key={lineNumber}
+                        key={shouldRenderGuide ? `guide-${index}` : lineNumber}
                         {...lineProps}
                         className={`${lineProps.className} flex ${
-                          isHighlighted ? "bg-accent/15" : "hover:bg-elevated/40"
+                          guideLine?.isGuideComment
+                            ? "bg-accent/10"
+                            : isHighlighted ? "bg-accent/15" : "hover:bg-elevated/40"
                         }`}
                       >
                         <span className="w-12 shrink-0 select-none border-r border-border-subtle pr-3 text-right text-text-muted bg-surface/60">
-                          {lineNumber}
+                          {guideLine?.isGuideComment ? "" : lineNumber}
                         </span>
                         <span className="pl-3 pr-6 whitespace-pre">
                           {line.map((token, key) => (
