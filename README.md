@@ -24,8 +24,9 @@
   <a href="#gemini-cli"><img src="https://img.shields.io/badge/Gemini_CLI-4285F4" alt="Gemini CLI" /></a>
   <a href="#opencode"><img src="https://img.shields.io/badge/OpenCode-38bdf8" alt="OpenCode" /></a>
   <a href="#mistral-vibe-cli"><img src="https://img.shields.io/badge/Vibe_CLI-7c3aed" alt="Vibe CLI" /></a>
-  <a href="https://understand-anything.com"><img src="https://img.shields.io/badge/Site-d4a574" alt="Site" /></a>
-  <a href="https://understand-anything.com/demo/"><img src="https://img.shields.io/badge/D%C3%A9mo-00c853" alt="Démo en direct" /></a>
+  <a href="#trae"><img src="https://img.shields.io/badge/Trae-7e22ce" alt="Trae" /></a>
+  <a href="https://understand-anything.com"><img src="https://img.shields.io/badge/Homepage-d4a574" alt="Homepage" /></a>
+  <a href="https://understand-anything.com/demo/"><img src="https://img.shields.io/badge/Live_Demo-00c853" alt="Live Demo" /></a>
 </p>
 
 <p align="center">
@@ -183,7 +184,7 @@ Understand-Anything fonctionne sur plusieurs plateformes de codage IA.
 /plugin install understand-anything
 ```
 
-### Installation en une ligne (Codex / OpenCode / OpenClaw / Antigravity / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI)
+### Installation en une ligne (Codex / OpenCode / OpenClaw / Antigravity / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI / Trae)
 
 **macOS / Linux :**
 ```bash
@@ -199,9 +200,9 @@ iwr -useb https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/ins
 
 L'installateur clone le dépôt dans `~/.understand-anything/repo` et crée les bons liens symboliques pour la plateforme choisie. Redémarrez ensuite votre CLI/IDE.
 
-- Valeurs `<platform>` prises en charge : `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`
-- Mettre à jour plus tard : `./install.sh --update`
-- Désinstaller : `./install.sh --uninstall <platform>`
+- Valeurs `<platform>` prises en charge: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `trae`
+- Mettre à jour plus tard: `./install.sh --update`
+- Désinstaller: `./install.sh --uninstall <platform>`
 
 ### Cursor
 
@@ -226,7 +227,7 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Plateforme | Statut | Méthode d'installation |
 |----------|--------|----------------|
 | Claude Code | ✅ Natif | Marketplace de plugins |
-| Cursor | ✅ Pris en charge | Découverte automatique |
+| Cursor | ✅ Pris en charge | Découverte automatiquey |
 | VS Code + GitHub Copilot | ✅ Pris en charge | Découverte automatique |
 | Copilot CLI | ✅ Pris en charge | Installation du plugin |
 | Codex | ✅ Pris en charge | `install.sh codex` |
@@ -239,6 +240,7 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Hermes | ✅ Pris en charge | `install.sh hermes` |
 | Cline | ✅ Pris en charge | `install.sh cline` |
 | KIMI CLI | ✅ Pris en charge | `install.sh kimi` |
+| Trae | ✅ Pris en charge | `install.sh trae` |
 
 ---
 
