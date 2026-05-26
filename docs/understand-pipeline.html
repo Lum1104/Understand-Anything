@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Understand-Anything — Pipeline reference</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1c2030;
+    --text: #d7dae3;
+    --muted: #8a91a3;
+    --accent: #d4a574;
+    --accent-2: #8fb8d6;
+    --green: #6cb46b;
+    --red: #d97461;
+    --orange: #d9a161;
+    --border: #262b3a;
+    --code-bg: #0b0d12;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    font-size: 15px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 28px 96px;
+  }
+  h1 {
+    font-family: "DM Serif Display", Georgia, serif;
+    font-weight: 400;
+    font-size: 40px;
+    margin: 0 0 4px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  h2 {
+    font-family: "DM Serif Display", Georgia, serif;
+    font-weight: 400;
+    font-size: 28px;
+    margin: 56px 0 12px;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 19px;
+    margin: 32px 0 8px;
+    color: var(--accent-2);
+    font-weight: 600;
+  }
+  h4 {
+    font-size: 15px;
+    margin: 18px 0 6px;
+    color: var(--text);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  p { margin: 8px 0 12px; }
+  .lede { color: var(--muted); font-size: 17px; margin-bottom: 28px; }
+  code {
+    background: var(--code-bg);
+    color: #e6c898;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; color: var(--text); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--panel-2);
+    font-weight: 600;
+    color: var(--text);
+  }
+  td { background: var(--panel); }
+  ul, ol { padding-left: 22px; margin: 8px 0 12px; }
+  li { margin-bottom: 4px; }
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin: 24px 0 36px;
+    font-size: 14px;
+  }
+  .toc h4 { margin-top: 0; }
+  .toc ol { columns: 2; column-gap: 32px; }
+  .toc a { color: var(--accent-2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+  .phase {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin: 14px 0;
+  }
+  .phase.zero { border-left-color: var(--accent-2); }
+  .phase.scan { border-left-color: #b48ec8; }
+  .phase.analyze { border-left-color: var(--orange); }
+  .phase.review { border-left-color: var(--accent-2); }
+  .phase.save { border-left-color: var(--green); }
+  .phase-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .phase-number {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .phase-title {
+    font-family: "DM Serif Display", Georgia, serif;
+    font-size: 22px;
+    color: var(--accent);
+    margin: 0;
+  }
+  .phase-summary { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  .phase-detail { margin: 4px 0; }
+  .label {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 3px;
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .label.produces { background: rgba(108, 180, 107, 0.15); color: var(--green); border: 1px solid rgba(108, 180, 107, 0.3); }
+  .label.reads { background: rgba(143, 184, 214, 0.15); color: var(--accent-2); border: 1px solid rgba(143, 184, 214, 0.3); }
+  .label.dispatches { background: rgba(217, 161, 97, 0.15); color: var(--orange); border: 1px solid rgba(217, 161, 97, 0.3); }
+  .label.script { background: rgba(180, 142, 200, 0.15); color: #b48ec8; border: 1px solid rgba(180, 142, 200, 0.3); }
+  .callout {
+    background: rgba(217, 116, 97, 0.08);
+    border: 1px solid rgba(217, 116, 97, 0.3);
+    border-left: 3px solid var(--red);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  .callout-title {
+    color: var(--red);
+    font-weight: 600;
+    margin: 0 0 4px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .note {
+    background: rgba(143, 184, 214, 0.06);
+    border: 1px solid rgba(143, 184, 214, 0.2);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  .ascii-diagram {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.4;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text);
+  }
+  .meta-strip {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .meta-strip strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent-2); }
+  a:hover { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 36px 0; }
+  .footer { color: var(--muted); font-size: 12px; margin-top: 64px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Understand-Anything Pipeline</h1>
+<p class="lede">A walkthrough of the seven phases of <code>/understand</code>, the four phases of the auto-update hook, the files produced at each step, and the failure modes worth knowing about.</p>
+
+<div class="meta-strip">
+  <span><strong>Document scope:</strong> <code>skills/understand</code> + <code>hooks/auto-update-prompt.md</code></span>
+  <span><strong>Sources:</strong> <code>skills/understand/SKILL.md</code>, <code>hooks/auto-update-prompt.md</code>, <code>agents/*.md</code></span>
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#main-pipeline">The main pipeline: <code>/understand</code></a></li>
+    <li><a href="#auto-update">The auto-update pipeline</a></li>
+    <li><a href="#files">Files produced</a></li>
+    <li><a href="#failure-modes">Failure modes</a></li>
+    <li><a href="#tunables">Tunables and options</a></li>
+    <li><a href="#bundled-scripts">Bundled scripts reference</a></li>
+  </ol>
+</div>
+
+<h2 id="overview">1. Overview</h2>
+
+<p>Understand-Anything analyzes a codebase to produce a <strong>knowledge graph</strong> — a JSON file at <code>.understand-anything/knowledge-graph.json</code> that the React dashboard renders as an interactive view of the project's architecture.</p>
+
+<p>The pipeline has two execution paths:</p>
+
+<ul>
+  <li><strong>Full analysis</strong> — the user invokes <code>/understand</code> (with or without <code>--full</code>). Runs all seven phases. Takes minutes to over an hour depending on repo size.</li>
+  <li><strong>Auto-update</strong> — triggered by a git commit hook when the user has opted in via <code>--auto-update</code>. Uses structural fingerprints to detect what changed and re-analyzes only the affected files. Spends zero LLM tokens when changes are cosmetic.</li>
+</ul>
+
+<div class="ascii-diagram">
+                       ┌────────────────────────────────────────────────────┐
+   user runs           │                                                    │
+   /understand    ───▶ │   Phase 0  →  0.5  →  1  →  2  →  3  →  4  →  5  →  6  →  7
+                       │   prelim     ignore  scan  analyze  asbl  arch  tour  validate  save
+                       └────────────────────────────────────────────────────┘
+                                                                                │
+                                                                                ▼
+                       ┌────────────────────────────────────────────────────┐
+                       │   .understand-anything/knowledge-graph.json        │
+                       │   .understand-anything/fingerprints.json           │  ← baseline for next time
+                       │   .understand-anything/meta.json                   │
+                       └────────────────────────────────────────────────────┘
+                                                                                │
+                                                                                ▼
+   git commit ────▶  PostToolUse hook  ─────▶  auto-update-prompt.md
+                                                  Phase 0 → 1 → 2 → 3
+                                              ┌────────────────────────┐
+                                              │ Phase 1 = 0 LLM tokens │
+                                              │ Phase 2 = only changed │
+                                              │ Phase 3 = lite or full │
+                                              └────────────────────────┘
+                                                          │
+                                                          ▼
+                                              knowledge-graph.json updated
+                                              fingerprints.json patched
+</div>
+
+<h2 id="main-pipeline">2. The main pipeline: <code>/understand</code></h2>
+
+<p>Seven numbered phases plus a fractional 0.5. Each phase reports its progress to the user with a <code>[Phase N/7]</code> status line (per <code>SKILL.md:25–38</code>). Phases 1, 3, 4, 5, 6 (LLM path) dispatch <strong>subagents</strong> defined in <code>agents/</code>; Phases 2 and 6 (deterministic path) and 7 run <strong>bundled scripts</strong>.</p>
+
+<div class="phase zero">
+  <div class="phase-header">
+    <span class="phase-number">Phase 0</span>
+    <h3 class="phase-title">Pre-flight</h3>
+  </div>
+  <p class="phase-summary">Resolve project root, build the plugin if needed, decide between full and incremental, gather context for later subagents.</p>
+
+  <p class="phase-detail"><span class="label reads">reads</span> existing <code>knowledge-graph.json</code> + <code>meta.json</code> if present, <code>config.json</code>, README, package manifest</p>
+  <p class="phase-detail"><span class="label produces">produces</span> in-memory: <code>PROJECT_ROOT</code>, <code>PLUGIN_ROOT</code>, <code>$IMPORT_MAP</code>, <code>$DIR_TREE</code>, <code>$ENTRY_POINT</code>, decision (FULL / INCREMENTAL / REVIEW / SKIP)</p>
+
+  <h4>Sub-steps</h4>
+  <ol>
+    <li><strong>Resolve <code>PROJECT_ROOT</code></strong> — parse <code>$ARGUMENTS</code> for a directory path or default to cwd. Redirect git worktrees back to the main checkout (worktrees are ephemeral and would destroy <code>.understand-anything/</code> on session end — issue #133).</li>
+    <li><strong>Ensure the plugin is built</strong> — locate <code>PLUGIN_ROOT</code> (multiple candidate paths supported: Claude, Copilot, Codex, opencode, pi, plain clone), then build <code>packages/core</code> if its <code>dist/</code> is missing. If <code>pnpm</code> is missing the skill instructs the user to install Node.js ≥ 22 and pnpm ≥ 10.</li>
+    <li><strong>Get the current git commit hash</strong></li>
+    <li><strong>Create <code>.understand-anything/intermediate</code> and <code>.understand-anything/tmp</code> directories</strong></li>
+    <li><strong>Apply <code>--auto-update</code> / <code>--no-auto-update</code> flags</strong> — writes to <code>.understand-anything/config.json</code></li>
+    <li><strong>Apply <code>--language</code> flag</strong> — sets <code>$OUTPUT_LANGUAGE</code> and stores in <code>config.json</code> for cross-run consistency</li>
+    <li><strong>Merge any subdomain graphs</strong> — runs <code>merge-subdomain-graphs.py</code> if files like <code>frontend-knowledge-graph.json</code> exist alongside the main graph</li>
+    <li><strong>Decision logic</strong> — full rebuild, incremental update, review-only, or skip:
+      <table>
+        <thead><tr><th>Condition</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><code>--full</code> in arguments</td><td>Full analysis (all phases)</td></tr>
+          <tr><td>No existing graph or meta</td><td>Full analysis (all phases)</td></tr>
+          <tr><td><code>--review</code> + unchanged commit hash</td><td>Skip to Phase 6 review-only</td></tr>
+          <tr><td>Existing graph + unchanged commit hash</td><td>Ask the user</td></tr>
+          <tr><td>Existing graph + changed files</td><td>Incremental update (Phase 2 only on changed files)</td></tr>
+        </tbody>
+      </table>
+    </li>
+    <li><strong>Collect project context</strong> — README (first 3000 chars), package manifest, directory tree (top 2 levels), entry-point detection</li>
+  </ol>
+</div>
+
+<div class="phase zero">
+  <div class="phase-header">
+    <span class="phase-number">Phase 0.5</span>
+    <h3 class="phase-title">Ignore configuration</h3>
+  </div>
+  <p class="phase-summary">Generate or confirm <code>.understandignore</code> patterns. Uses <code>.gitignore</code> as a starting point.</p>
+  <p class="phase-detail"><span class="label reads">reads</span> <code>.understand-anything/.understandignore</code>, <code>.gitignore</code></p>
+  <p class="phase-detail"><span class="label produces">produces</span> <code>.understand-anything/.understandignore</code> (if absent)</p>
+  <div class="note"><strong>Confirmation gate.</strong> The skill pauses here waiting for user confirmation. This is a prompt-mediated pause, not enforced — explicit "proceed without confirmation" in the invocation skips it.</div>
+</div>
+
+<div class="phase scan">
+  <div class="phase-header">
+    <span class="phase-number">Phase 1</span>
+    <h3 class="phase-title">SCAN — project inventory</h3>
+  </div>
+  <p class="phase-summary">Enumerate every file, detect languages and frameworks, build an internal-import map. Single subagent dispatch.</p>
+
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/project-scanner.md</code></p>
+  <p class="phase-detail"><span class="label script">script</span> <code>skills/understand/scan-project.mjs</code> (bundled; runs as Node subprocess)</p>
+  <p class="phase-detail"><span class="label script">script</span> <code>skills/understand/extract-import-map.mjs</code> (bundled; per-language import resolution)</p>
+  <p class="phase-detail"><span class="label produces">produces</span> <code>.understand-anything/intermediate/scan-result.json</code> — files list with <code>fileCategory</code>, languages, frameworks, complexity estimate, <code>importMap</code></p>
+
+  <div class="note">
+    <strong>Gate at &gt;100 files.</strong> Skill asks for user confirmation. Prompt-mediated; override in invocation if running unattended.
+  </div>
+</div>
+
+<div class="phase analyze">
+  <div class="phase-header">
+    <span class="phase-number">Phase 2</span>
+    <h3 class="phase-title">ANALYZE — per-file node and edge extraction</h3>
+  </div>
+  <p class="phase-summary">Batch files into groups of ~20–30, dispatch subagents in parallel (up to 5 concurrent) to extract <code>GraphNode</code> and <code>GraphEdge</code> objects per file.</p>
+
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/file-analyzer.md</code> (N batches × up to 5 concurrent)</p>
+  <p class="phase-detail"><span class="label script">script</span> <code>skills/understand/compute-batches.mjs</code> (semantic batching via Louvain communities since 2.7.x)</p>
+  <p class="phase-detail"><span class="label script">script</span> <code>skills/understand/extract-structure.mjs</code> (tree-sitter pass per file)</p>
+  <p class="phase-detail"><span class="label script">script</span> <code>skills/understand/merge-batch-graphs.py</code> (merges all <code>batch-*.json</code> + normalizes IDs)</p>
+  <p class="phase-detail"><span class="label produces">produces</span> <code>intermediate/batch-N.json</code> (one per batch), <code>intermediate/assembled-graph.json</code> (merged + normalized)</p>
+
+  <h4>What the merge script does</h4>
+  <ul>
+    <li>Combines nodes/edges across batches</li>
+    <li>Normalizes node IDs (strips double prefixes, project-name prefixes, adds missing prefixes)</li>
+    <li>Normalizes complexity values (<code>low</code>→<code>simple</code>, <code>medium</code>→<code>moderate</code>, <code>high</code>→<code>complex</code>)</li>
+    <li>Deduplicates nodes by ID and edges by <code>(source, target, type)</code></li>
+    <li>Drops dangling edges referencing missing nodes</li>
+    <li>Runs the <code>tested_by</code> linker — flips inverted test→production edges and adds path-convention pairings (<code>X.ts</code> ↔ <code>X.test.ts</code>, Java/Maven <code>src/test/...</code> ↔ <code>src/main/...</code>, etc.)</li>
+  </ul>
+
+  <h4>Incremental path</h4>
+  <p>On incremental update, only changed files are batched. Old nodes whose <code>filePath</code> matches a changed file are removed from the prior graph, then merged with the fresh batches.</p>
+</div>
+
+<div class="phase review">
+  <div class="phase-header">
+    <span class="phase-number">Phase 3</span>
+    <h3 class="phase-title">ASSEMBLE REVIEW</h3>
+  </div>
+  <p class="phase-summary">A reviewer subagent checks the assembled graph against the import map for missing cross-batch edges and obvious correctness issues.</p>
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/assemble-reviewer.md</code></p>
+  <p class="phase-detail"><span class="label reads">reads</span> <code>intermediate/assembled-graph.json</code>, all <code>batch-*.json</code>, <code>$IMPORT_MAP</code></p>
+  <p class="phase-detail"><span class="label produces">produces</span> <code>intermediate/assemble-review.json</code> (notes appended to <code>$PHASE_WARNINGS</code>)</p>
+</div>
+
+<div class="phase review">
+  <div class="phase-header">
+    <span class="phase-number">Phase 4</span>
+    <h3 class="phase-title">ARCHITECTURE — layer assignment</h3>
+  </div>
+  <p class="phase-summary">Identify architectural layers and assign every file-level node to exactly one layer.</p>
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/architecture-analyzer.md</code> — receives the full file-level node list, all import edges, and all other edges in the dispatch prompt</p>
+  <p class="phase-detail"><span class="label produces">produces</span> <code>intermediate/layers.json</code></p>
+
+  <div class="callout">
+    <p class="callout-title">Context-window hot spot</p>
+    On large repos this agent's prompt can get heavy — the full node list is materialized into one prompt. Phase 4 (with Phase 5) is the most common context-overflow point in the pipeline.
+  </div>
+
+  <h4>Normalization after the subagent</h4>
+  <p>The orchestrator unwraps any <code>{ "layers": [...] }</code> envelope, renames legacy fields (<code>nodes</code> → <code>nodeIds</code>), synthesizes missing IDs (<code>layer:&lt;kebab-case-name&gt;</code>), converts raw file paths to typed IDs (<code>file:&lt;path&gt;</code>, <code>config:&lt;path&gt;</code>, etc.), and drops dangling references.</p>
+</div>
+
+<div class="phase review">
+  <div class="phase-header">
+    <span class="phase-number">Phase 5</span>
+    <h3 class="phase-title">TOUR — guided learning path</h3>
+  </div>
+  <p class="phase-summary">Build a sequence of "tour steps" that lead a new reader through the codebase, anchored to the entry point and aligned with the README narrative.</p>
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/tour-builder.md</code> — receives all file-level nodes, layers (without nodeIds), and all edges</p>
+  <p class="phase-detail"><span class="label produces">produces</span> <code>intermediate/tour.json</code> (normalized to <code>{order, title, description, nodeIds, languageLesson?}</code>)</p>
+</div>
+
+<div class="phase save">
+  <div class="phase-header">
+    <span class="phase-number">Phase 6</span>
+    <h3 class="phase-title">REVIEW — validation</h3>
+  </div>
+  <p class="phase-summary">Assemble the final <code>KnowledgeGraph</code> object and validate it. Two paths.</p>
+  <p class="phase-detail"><span class="label script">script</span> <code>tmp/ua-inline-validate.cjs</code> (default: deterministic) — checks node IDs, edge refs, layer membership, tour refs; produces <code>intermediate/review.json</code></p>
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/graph-reviewer.md</code> (only with <code>--review</code> flag)</p>
+  <p class="phase-detail">Automated fixes for non-empty <code>issues</code> array — drop dangling edges, fill empty fields, remove invalid nodes; re-validate once.</p>
+</div>
+
+<div class="phase save">
+  <div class="phase-header">
+    <span class="phase-number">Phase 7</span>
+    <h3 class="phase-title">SAVE — persist + baseline</h3>
+  </div>
+  <p class="phase-summary">Write the final graph, generate the fingerprint baseline, persist metadata, clean up intermediates. <strong>Step ordering is critical here.</strong></p>
+
+  <h4>Steps</h4>
+  <ol>
+    <li><strong>Write <code>knowledge-graph.json</code></strong> — the user-facing artifact.</li>
+    <li><strong>Generate the fingerprint baseline</strong> — runs <code>node skills/understand/build-fingerprints.mjs</code>. Tree-sitter extracts functions/classes/imports/exports per source file and writes <code>.understand-anything/fingerprints.json</code>. <strong>If this fails, Phase 7 must abort — meta.json must not advance.</strong></li>
+    <li><strong>Write <code>meta.json</code></strong> — records the current commit hash, last-analyzed timestamp, version, file count.</li>
+    <li><strong>Clean up</strong> — <code>rm -rf intermediate/ tmp/</code>.</li>
+    <li><strong>Report summary</strong> — phase warnings, node/edge counts by type, output paths.</li>
+    <li><strong>Auto-launch dashboard</strong> (only if final validation passed) — invokes <code>/understand-dashboard</code>.</li>
+  </ol>
+
+  <div class="callout">
+    <p class="callout-title">Critical ordering — fingerprints before meta.json</p>
+    If <code>meta.json</code> records a new commit hash but <code>fingerprints.json</code> never got written, every subsequent auto-update sees "no stored fingerprint" for every file, classifies them all as STRUCTURAL, and escalates to <code>FULL_UPDATE</code> on every commit. This is the issue #152 family of bugs. The 2.7.3 fix added the prompt-level "abort" instruction; the 2.7.5+ <em>preflight</em> guards against the upstream cause (missing <code>node</code> on PATH).
+  </div>
+</div>
+
+<h2 id="auto-update">3. The auto-update pipeline</h2>
+
+<p>Triggered by the <code>PostToolUse</code> hook on <code>git commit/merge/cherry-pick/rebase</code>, plus the <code>SessionStart</code> hook when <code>meta.json</code>'s commit hash differs from <code>HEAD</code>. Both require <code>autoUpdate: true</code> in <code>.understand-anything/config.json</code>.</p>
+
+<p>Goal: spend zero LLM tokens when changes are cosmetic; only invoke LLM agents when structural changes are detected. Lives in <code>hooks/auto-update-prompt.md</code>.</p>
+
+<div class="phase zero">
+  <div class="phase-header">
+    <span class="phase-number">Phase 0</span>
+    <h3 class="phase-title">Pre-flight + filter</h3>
+  </div>
+  <ol>
+    <li>Verify <code>knowledge-graph.json</code> and <code>meta.json</code> exist; if not, instruct user to run <code>/understand</code> first.</li>
+    <li>Get current commit hash; if it matches stored, report up-to-date and stop.</li>
+    <li><code>git diff &lt;lastCommitHash&gt;..HEAD --name-only</code> — get changed files.</li>
+    <li>Filter to source-file extensions only.</li>
+    <li>Apply <code>.understandignore</code> exclusions via <code>createIgnoreFilter</code> (added in #153 fix).</li>
+    <li>If nothing remains, just update <code>meta.json</code> commit hash and stop.</li>
+  </ol>
+</div>
+
+<div class="phase scan">
+  <div class="phase-header">
+    <span class="phase-number">Phase 1</span>
+    <h3 class="phase-title">Structural fingerprint check — <em>zero LLM tokens</em></h3>
+  </div>
+  <p class="phase-summary">A Node.js script compares each changed file against its stored fingerprint and classifies it.</p>
+
+  <h4>Per-file classification</h4>
+  <table>
+    <thead><tr><th>Comparison</th><th>Class</th></tr></thead>
+    <tbody>
+      <tr><td>Content hash matches stored</td><td><code>NONE</code> (skip)</td></tr>
+      <tr><td>Hash differs, but functions/classes/imports/exports identical</td><td><code>COSMETIC</code></td></tr>
+      <tr><td>Hash differs, structural elements differ</td><td><code>STRUCTURAL</code></td></tr>
+      <tr><td>File new (not in fingerprints.json)</td><td><code>STRUCTURAL</code></td></tr>
+      <tr><td>File deleted (in fingerprints, missing on disk)</td><td><code>STRUCTURAL</code></td></tr>
+    </tbody>
+  </table>
+
+  <h4>Overall action</h4>
+  <table>
+    <thead><tr><th>Condition</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>All NONE/COSMETIC</td><td><code>SKIP</code> — bump meta.json, stop</td></tr>
+      <tr><td>Some STRUCTURAL, ≤10 files, same directories</td><td><code>PARTIAL_UPDATE</code></td></tr>
+      <tr><td>New/deleted directories or &gt;10 structural files</td><td><code>ARCHITECTURE_UPDATE</code></td></tr>
+      <tr><td>&gt;30 structural files or &gt;50% of graph</td><td><code>FULL_UPDATE</code> — recommend manual <code>/understand --full</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="phase analyze">
+  <div class="phase-header">
+    <span class="phase-number">Phase 2</span>
+    <h3 class="phase-title">Targeted re-analysis</h3>
+  </div>
+  <p class="phase-summary">Only this phase costs LLM tokens. Dispatches <code>file-analyzer</code> subagents on just the structurally-changed files.</p>
+  <p class="phase-detail"><span class="label dispatches">dispatches</span> <code>agents/file-analyzer.md</code> on the structural change set only</p>
+  <p class="phase-detail">Merges results into the existing graph: removes old nodes by <code>filePath</code>, removes edges referencing removed nodes, adds fresh nodes + edges, dedupes.</p>
+</div>
+
+<div class="phase save">
+  <div class="phase-header">
+    <span class="phase-number">Phase 3</span>
+    <h3 class="phase-title">Conditional architecture/tour + save</h3>
+  </div>
+  <ul>
+    <li><strong>3a. Architecture update</strong> — only if <code>ARCHITECTURE_UPDATE</code>. Re-runs <code>architecture-analyzer</code> with the prior layer definitions injected for naming consistency.</li>
+    <li><strong>3b. Lite layer update</strong> — for <code>PARTIAL_UPDATE</code>. Directory-match new files into existing layers, drop deleted-file IDs.</li>
+    <li><strong>3c. Lite validation</strong> — drop dangling edges, ensure every file node is in exactly one layer.</li>
+    <li><strong>3d. Save</strong> — write graph, update <code>meta.json</code>, <strong>LOAD-PATCH-SAVE</strong> <code>fingerprints.json</code> (load all entries, patch only re-analyzed paths, save full dict back — the issue #152 guard).</li>
+    <li><strong>Clean up</strong> <code>intermediate/</code>.</li>
+  </ul>
+
+  <div class="callout">
+    <p class="callout-title">LOAD-PATCH-SAVE invariant</p>
+    The script that updates <code>fingerprints.json</code> in Phase 3d must load every existing entry, patch only the re-analyzed paths, and save the full dict. Overwriting with just the patched subset corrupts the baseline so every subsequent commit escalates to <code>FULL_UPDATE</code> — the original #152 reproduction. The script has an explicit <code>existedAndNonEmpty &amp;&amp; before === 0</code> guard that refuses to overwrite if the load step silently returned empty.
+  </div>
+</div>
+
+<h2 id="files">4. Files produced</h2>
+
+<h3>Persistent (survive between runs)</h3>
+<table>
+  <thead><tr><th>File</th><th>Producer</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>.understand-anything/knowledge-graph.json</code></td><td>Phase 7 step 1</td><td>The final graph — what the dashboard renders</td></tr>
+    <tr><td><code>.understand-anything/fingerprints.json</code></td><td>Phase 7 step 2 (full) or Phase 3d (incremental)</td><td>Per-file SHA-256 + structural signatures; baseline for next auto-update</td></tr>
+    <tr><td><code>.understand-anything/meta.json</code></td><td>Phase 7 step 3</td><td>Current commit hash, timestamp, version, file count</td></tr>
+    <tr><td><code>.understand-anything/.understandignore</code></td><td>Phase 0.5</td><td>Patterns to exclude from analysis (gitignore syntax)</td></tr>
+    <tr><td><code>.understand-anything/config.json</code></td><td>Phase 0 step 3.5/3.6</td><td><code>autoUpdate</code>, <code>outputLanguage</code></td></tr>
+    <tr><td><code>.understand-anything/domain-graph.json</code></td><td><code>/understand-domain</code> (separate skill)</td><td>Optional business-domain layer; rendered as separate dashboard view</td></tr>
+  </tbody>
+</table>
+
+<h3>Transient (deleted in Phase 7 step 4)</h3>
+<table>
+  <thead><tr><th>File</th><th>Producer</th></tr></thead>
+  <tbody>
+    <tr><td><code>intermediate/scan-result.json</code></td><td>Phase 1</td></tr>
+    <tr><td><code>intermediate/batch-N.json</code></td><td>Phase 2 (one per batch)</td></tr>
+    <tr><td><code>intermediate/assembled-graph.json</code></td><td>Phase 2 merge script + Phase 6</td></tr>
+    <tr><td><code>intermediate/assemble-review.json</code></td><td>Phase 3</td></tr>
+    <tr><td><code>intermediate/layers.json</code></td><td>Phase 4</td></tr>
+    <tr><td><code>intermediate/tour.json</code></td><td>Phase 5</td></tr>
+    <tr><td><code>intermediate/review.json</code></td><td>Phase 6</td></tr>
+    <tr><td><code>intermediate/fingerprint-input.json</code></td><td>Phase 7 step 2</td></tr>
+    <tr><td><code>tmp/ua-*.{js,cjs,mjs}</code></td><td>Various phases (one-off scripts the LLM writes)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="failure-modes">5. Failure modes</h2>
+
+<h3>Silent fingerprints failure (issue #152 family)</h3>
+<p>Symptom: <code>meta.json</code> + <code>knowledge-graph.json</code> present, <code>fingerprints.json</code> absent. Auto-update permanently broken — every commit triggers <code>FULL_UPDATE</code> because every file has "no stored fingerprint" to compare against.</p>
+<p>The 2.7.3 fix (commits <code>dd8b724</code> + <code>e7af9ae</code>) addressed the original PARTIAL_UPDATE overwrite case and added a prompt-level "abort Phase 7 if fingerprints fail" instruction. A residual gap remains when the orchestrator (the LLM) proceeds to write <code>meta.json</code> despite the script failing — typically because <code>node</code> isn't reachable in the non-interactive Bash subshell the skill runs in (a common environment issue with version managers like nvm/fnm/mise hooked into <code>~/.zshrc</code> instead of <code>~/.zshenv</code>).</p>
+<p>If you see this symptom, manually invoke <code>node skills/understand/build-fingerprints.mjs</code> against an input file built from your repo's source paths — the script's actual error will tell you the underlying cause.</p>
+
+<h3>Intermediate-directory pollution</h3>
+<p>If a run errors out before Phase 7 step 4 cleans up, leftover <code>intermediate/batch-*.json</code> and related files survive. The <em>next</em> <code>/understand --full</code> walks back into them because <code>.understand-anything/</code> is not in <code>DEFAULT_IGNORE_PATTERNS</code> (see <code>packages/core/src/ignore-filter.ts:9</code>) — so file counts grow monotonically across runs.</p>
+<p><strong>Workaround:</strong> add <code>.understand-anything/</code> to your <code>.understandignore</code>, or manually delete <code>intermediate/</code> between runs if a previous one failed.</p>
+
+<h3>Symlink resolution failure (issue #162)</h3>
+<p>Fixed in 2.7.3. <code>extract-structure.mjs</code>'s <code>isCli</code> guard compared <code>import.meta.url</code> (resolved through symlinks) against <code>process.argv[1]</code> (preserved as symlink). When SKILL_DIR was symlinked (the default Claude Code install layout), <code>main()</code> never ran. Now uses <code>realpathSync</code> on both sides.</p>
+
+<h3>Subagent dispatch overhead</h3>
+<p>Each subagent cold-start is 30–60s regardless of payload. For 700-file repos, Phase 2 runs ~28 batches sequentially in waves of 5 — Phase 2 alone is typically 60–80% of total wall-clock time. The bottleneck is LLM throughput; raising the concurrency cap (currently 5 in <code>SKILL.md:297</code>) gives roughly proportional speedup.</p>
+
+<h2 id="tunables">6. Tunables and options</h2>
+
+<table>
+  <thead><tr><th>Flag</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>--full</code></td><td>Force a full rebuild, ignoring any existing graph and skipping the Phase 0 decision question</td></tr>
+    <tr><td><code>--auto-update</code></td><td>Enable commit-triggered auto-update (writes <code>autoUpdate: true</code> to <code>config.json</code>); analysis still proceeds normally</td></tr>
+    <tr><td><code>--no-auto-update</code></td><td>Disable auto-update</td></tr>
+    <tr><td><code>--review</code></td><td>Run the full LLM graph-reviewer in Phase 6 instead of the inline deterministic validator</td></tr>
+    <tr><td><code>--language &lt;lang&gt;</code></td><td>Generate all textual content (summaries, descriptions, tags, titles) in the specified language. ISO 639-1 codes or friendly names accepted. Stored in <code>config.json</code> for cross-run consistency.</td></tr>
+    <tr><td>positional path</td><td>Analyze the given directory instead of cwd (e.g. <code>/understand ../other-project</code>)</td></tr>
+  </tbody>
+</table>
+
+<h3>Other relevant config</h3>
+<ul>
+  <li><code>.understand-anything/config.json</code> — <code>autoUpdate</code> (boolean), <code>outputLanguage</code> (string)</li>
+  <li><code>UNDERSTAND_NO_WORKTREE_REDIRECT=1</code> — opt out of the worktree-to-main-checkout redirect in Phase 0</li>
+  <li><code>CLAUDE_PLUGIN_ROOT</code> — explicit plugin root path (set by Claude Code automatically)</li>
+</ul>
+
+<h2 id="bundled-scripts">7. Bundled scripts reference</h2>
+
+<p>Scripts that ship with the skill and run as subprocesses (no LLM cost):</p>
+
+<table>
+  <thead><tr><th>Script</th><th>Used by phase</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>scan-project.mjs</code></td><td>Phase 1</td><td>Discover files, detect languages/frameworks, build import map</td></tr>
+    <tr><td><code>extract-import-map.mjs</code></td><td>Phase 1 (called from scan)</td><td>Per-language relative-import resolution</td></tr>
+    <tr><td><code>compute-batches.mjs</code></td><td>Phase 2</td><td>Group files into semantically-cohesive batches via Louvain community detection</td></tr>
+    <tr><td><code>extract-structure.mjs</code></td><td>Phase 2 (called from file-analyzer)</td><td>Tree-sitter structural extraction</td></tr>
+    <tr><td><code>merge-batch-graphs.py</code></td><td>Phase 2</td><td>Merge all <code>batch-*.json</code> + normalize IDs + dedup + run <code>tested_by</code> linker</td></tr>
+    <tr><td><code>merge-subdomain-graphs.py</code></td><td>Phase 0 step 4</td><td>Merge subdomain knowledge graphs if present (e.g. <code>frontend-knowledge-graph.json</code>)</td></tr>
+    <tr><td><code>build-fingerprints.mjs</code></td><td>Phase 7 step 2</td><td>Generate the structural-fingerprint baseline</td></tr>
+  </tbody>
+</table>
+
+<h3>Agent definitions (LLM-dispatched)</h3>
+<table>
+  <thead><tr><th>Agent</th><th>Used by phase</th><th>Output</th></tr></thead>
+  <tbody>
+    <tr><td><code>project-scanner</code></td><td>Phase 1</td><td><code>scan-result.json</code></td></tr>
+    <tr><td><code>file-analyzer</code></td><td>Phase 2 (and incremental Phase 2 of auto-update)</td><td><code>batch-N.json</code> per batch</td></tr>
+    <tr><td><code>assemble-reviewer</code></td><td>Phase 3</td><td><code>assemble-review.json</code></td></tr>
+    <tr><td><code>architecture-analyzer</code></td><td>Phase 4 (and 3a of auto-update)</td><td><code>layers.json</code></td></tr>
+    <tr><td><code>tour-builder</code></td><td>Phase 5</td><td><code>tour.json</code></td></tr>
+    <tr><td><code>graph-reviewer</code></td><td>Phase 6 (only with <code>--review</code>)</td><td><code>review.json</code></td></tr>
+    <tr><td><code>domain-analyzer</code></td><td><code>/understand-domain</code> (separate skill)</td><td><code>domain-analysis.json</code> → <code>domain-graph.json</code></td></tr>
+  </tbody>
+</table>
+
+<p class="footer">Reference compiled from <code>skills/understand/SKILL.md</code>, <code>hooks/auto-update-prompt.md</code>, and <code>agents/*.md</code>. Updates should mirror SKILL changes.</p>
+
+</body>
+</html>
