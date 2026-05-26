@@ -12,5 +12,25 @@ __pycache__/
 .worktrees/
 homepage/public/demo/
 .private/
-__pycache__/
 *.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+.coverage
+htmlcov/
