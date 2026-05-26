@@ -127,6 +127,7 @@ interface DashboardStore {
   persona: Persona;
 
   diffMode: boolean;
+  diffFilterOnly: boolean;
   changedNodeIds: Set<string>;
   affectedNodeIds: Set<string>;
 
@@ -172,6 +173,7 @@ interface DashboardStore {
 
   setDiffOverlay: (changed: string[], affected: string[]) => void;
   toggleDiffMode: () => void;
+  toggleDiffFilterOnly: () => void;
   clearDiffOverlay: () => void;
 
   toggleFilterPanel: () => void;
@@ -310,6 +312,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   persona: "junior",
 
   diffMode: false,
+  diffFilterOnly: false,
   changedNodeIds: new Set<string>(),
   affectedNodeIds: new Set<string>(),
 
@@ -551,15 +554,27 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   setDiffOverlay: (changed, affected) =>
     set({
       diffMode: true,
+      diffFilterOnly: false,
       changedNodeIds: new Set(changed),
       affectedNodeIds: new Set(affected),
     }),
 
   toggleDiffMode: () => set((state) => ({ diffMode: !state.diffMode })),
 
+  toggleDiffFilterOnly: () =>
+    set((state) => ({
+      diffFilterOnly: !state.diffFilterOnly,
+      // Filter changes shift which nodes/containers are visible; drop caches.
+      containerLayoutCache: new Map(),
+      containerSizeMemory: new Map(),
+      expandedContainers: new Set(),
+      pendingFocusContainer: null,
+    })),
+
   clearDiffOverlay: () =>
     set({
       diffMode: false,
+      diffFilterOnly: false,
       changedNodeIds: new Set<string>(),
       affectedNodeIds: new Set<string>(),
     }),
