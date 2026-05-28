@@ -163,4 +163,71 @@ function multiline(
       parser.delete();
     });
   });
+
+  // ---- TypeScript: classes ----
+
+  describe("TypeScript - extractStructure - classes", () => {
+    it("extracts class with methods and properties", () => {
+      const { tree, parser, root } = parseTs(`
+class UserService {
+  private db: Database;
+  timeout: number;
+
+  constructor(db: Database) {
+    this.db = db;
+  }
+
+  async getUser(id: string): Promise<User> {
+    return this.db.find(id);
+  }
+
+  deleteUser(id: string): void {
+    this.db.delete(id);
+  }
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes).toHaveLength(1);
+      expect(result.classes[0].name).toBe("UserService");
+      expect(result.classes[0].methods).toContain("constructor");
+      expect(result.classes[0].methods).toContain("getUser");
+      expect(result.classes[0].methods).toContain("deleteUser");
+      expect(result.classes[0].properties).toContain("db");
+      expect(result.classes[0].properties).toContain("timeout");
+      expect(result.classes[0].lineRange[0]).toBe(2);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts empty class", () => {
+      const { tree, parser, root } = parseTs(`
+class Empty {}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes).toHaveLength(1);
+      expect(result.classes[0].name).toBe("Empty");
+      expect(result.classes[0].methods).toEqual([]);
+      expect(result.classes[0].properties).toEqual([]);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts multiple classes", () => {
+      const { tree, parser, root } = parseTs(`
+class Foo {}
+class Bar {}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes).toHaveLength(2);
+      expect(result.classes.map((c) => c.name)).toEqual(["Foo", "Bar"]);
+
+      tree.delete();
+      parser.delete();
+    });
+  });
 });
