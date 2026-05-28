@@ -1,7 +1,7 @@
 ---
 name: understand
 description: Analyze a codebase to produce an interactive knowledge graph for understanding architecture, components, and relationships
-argument-hint: ["[path] [--full|--caveman|--auto-update|--no-auto-update|--review|--language <lang>]"]
+argument-hint: ["[path] [--full|--caveman|--annotation-index [pattern-file]|--auto-update|--no-auto-update|--review|--language <lang>]"]
 ---
 
 # /understand
@@ -12,6 +12,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in `.unde
 
 - `$ARGUMENTS` may contain:
   - `--full` — Force a full rebuild, ignoring any existing graph
+  - `--annotation-index [pattern-file]` — Pre-extract structured annotations (e.g. `RULE-\d+`, `BCP-[A-Z]+-\d+`, Jira IDs, RFC numbers) from all project files before LLM analysis. Writes `.understand-anything/intermediate/annotation-index.json`. The file-analyzer phase injects pre-found annotations as confirmed relationship edges, eliminating LLM discovery of known patterns (~30-50% Phase 2 token reduction for annotation-heavy codebases). If `pattern-file` is omitted, reads `.understand-anything/annotation-patterns.json`. Pattern file format: `{"patterns": [{"name": "rule-ref", "regex": "RULE-\\d+", "edge_type": "enforces-rule"}]}`. See `extract-annotation-index.mjs --help` for full format. Compatible with `--caveman` and `--full`.
   - `--caveman` — Reduced-token mode (~65-70% fewer tokens). Skips function/class extraction, import resolution, and LLM-based architecture/tour agents. Produces a file-level-only graph with deterministic layers and tour. Ideal for quick overviews or large codebases. Incompatible with `--review` (caveman mode ignores `--review` if both are passed). **Note:** layer names and tour titles/descriptions are English-only — `--language` still applies to file-node summaries but not to caveman's deterministic labels.
   - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `.understand-anything/config.json`)
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `.understand-anything/config.json`)
@@ -286,6 +287,27 @@ Store the file list as `$FILE_LIST` with `fileCategory` metadata for use in Phas
 
 If the scan result includes `filteredByIgnore > 0`, report:
 > Excluded {filteredByIgnore} files via `.understandignore`.
+
+---
+
+## Phase 1.25 — ANNOTATION PRE-PASS (optional)
+
+**Run only if `--annotation-index` flag is present.**
+
+Parse `$ARGUMENTS` for `--annotation-index`. If found:
+1. Extract optional `pattern-file` argument (the token immediately after `--annotation-index` if it doesn't start with `--`). Store as `$ANNOTATION_PATTERN_FILE` (or empty string to use default).
+2. Run:
+```bash
+node <SKILL_DIR>/extract-annotation-index.mjs \
+  --project-dir $PROJECT_ROOT \
+  [--pattern-file $ANNOTATION_PATTERN_FILE]
+```
+3. Report: `[Phase 1.25/7] Annotation pre-pass complete. N file(s) with annotations found.`
+4. Set `$ANNOTATION_INDEX_AVAILABLE = true` for Phase 2.
+
+If `--annotation-index` is not present, skip this phase entirely. Set `$ANNOTATION_INDEX_AVAILABLE = false`.
+
+If the script exits non-zero (pattern file missing or invalid JSON), warn the user and continue with `$ANNOTATION_INDEX_AVAILABLE = false` — annotation pre-pass is an optimization, not a hard requirement.
 
 ---
 

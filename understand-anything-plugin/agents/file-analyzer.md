@@ -144,6 +144,15 @@ Treat these the same as tree-sitter-derived functions for node creation (Step 2 
 
 After the script completes, read `$PROJECT_ROOT/.understand-anything/tmp/ua-file-extract-results-<batchIndex>.json`. Use these structured results as the foundation for your analysis. Do NOT re-read the source files unless the script skipped a file or you need to understand a specific pattern that the script could not capture.
 
+### Annotation Pre-pass Injection
+
+If `$ANNOTATION_INDEX_AVAILABLE = true` (set when `--annotation-index` flag was used in Phase 1.25), read `.understand-anything/intermediate/annotation-index.json` once before processing your batch. For each file you are analyzing, look up its project-relative path in the index. If entries exist, prepend the following block to your semantic analysis prompt for that file:
+
+> **Pre-extracted annotation references:** `[RULE-023, BCP-REL-307, PRD-2990]`
+> These annotation IDs were extracted by regex from this file's source. They are confirmed relationship edges — document each as a typed `GraphEdge` using the `edge_type` from the pattern config (e.g. `enforces-rule`, `implements-bcp`, `born-from-prd`). Do not search the source for these IDs; they are already found.
+
+This eliminates LLM re-discovery of known structured annotations and reduces prompt length for annotation-heavy files.
+
 For each file in the script's `results` array, produce `GraphNode` and `GraphEdge` objects by combining the script's structural data with your expert judgment.
 
 ### Step 1 -- Create File Node
