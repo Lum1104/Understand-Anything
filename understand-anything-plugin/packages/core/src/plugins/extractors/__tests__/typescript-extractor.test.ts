@@ -566,3 +566,242 @@ export const DEFAULT_TIMEOUT = 5000;
     });
   });
 });
+
+describe("TypeScriptExtractor - JavaScript grammar", () => {
+  const extractor = new TypeScriptExtractor();
+
+  // ---- JS: functions ----
+
+  describe("JavaScript - extractStructure - functions", () => {
+    it("extracts function declaration (no types)", () => {
+      const { tree, parser, root } = parseJs(`
+function greet(name, age) {
+  return name;
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.functions).toHaveLength(1);
+      expect(result.functions[0].name).toBe("greet");
+      expect(result.functions[0].params).toEqual(["name", "age"]);
+      expect(result.functions[0].returnType).toBeUndefined();
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts arrow function assigned to const", () => {
+      const { tree, parser, root } = parseJs(`
+const add = (a, b) => a + b;
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.functions).toHaveLength(1);
+      expect(result.functions[0].name).toBe("add");
+      expect(result.functions[0].params).toEqual(["a", "b"]);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts function expression assigned to const", () => {
+      const { tree, parser, root } = parseJs(`
+const handler = function(req, res) {
+  res.send("ok");
+};
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.functions).toHaveLength(1);
+      expect(result.functions[0].name).toBe("handler");
+      expect(result.functions[0].params).toEqual(["req", "res"]);
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+
+  // ---- JS: classes ----
+
+  describe("JavaScript - extractStructure - classes", () => {
+    it("extracts ES6 class with methods", () => {
+      const { tree, parser, root } = parseJs(`
+class Animal {
+  constructor(name) {
+    this.name = name;
+  }
+
+  speak() {
+    console.log(this.name);
+  }
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes).toHaveLength(1);
+      expect(result.classes[0].name).toBe("Animal");
+      expect(result.classes[0].methods).toContain("constructor");
+      expect(result.classes[0].methods).toContain("speak");
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+
+  // ---- JS: imports (ESM) ----
+
+  describe("JavaScript - extractStructure - imports", () => {
+    it("extracts ESM named imports", () => {
+      const { tree, parser, root } = parseJs(`
+import { readFile, writeFile } from "fs/promises";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(1);
+      expect(result.imports[0].source).toBe("fs/promises");
+      expect(result.imports[0].specifiers).toContain("readFile");
+      expect(result.imports[0].specifiers).toContain("writeFile");
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts ESM default import", () => {
+      const { tree, parser, root } = parseJs(`
+import express from "express";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(1);
+      expect(result.imports[0].source).toBe("express");
+      expect(result.imports[0].specifiers).toContain("express");
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+
+  // ---- JS: exports ----
+
+  describe("JavaScript - extractStructure - exports", () => {
+    it("extracts named function export", () => {
+      const { tree, parser, root } = parseJs(`
+export function doWork() {}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.exports.some((e) => e.name === "doWork")).toBe(true);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts default export", () => {
+      const { tree, parser, root } = parseJs(`
+export default function App() {}
+`);
+      const result = extractor.extractStructure(root);
+
+      const def = result.exports.find((e) => e.isDefault);
+      expect(def).toBeDefined();
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+
+  // ---- JS: call graph ----
+
+  describe("JavaScript - extractCallGraph", () => {
+    it("extracts simple function calls", () => {
+      const { tree, parser, root } = parseJs(`
+function main() {
+  setup();
+  run();
+}
+`);
+      const result = extractor.extractCallGraph(root);
+
+      const calls = result.filter((e) => e.caller === "main");
+      expect(calls.some((e) => e.callee === "setup")).toBe(true);
+      expect(calls.some((e) => e.callee === "run")).toBe(true);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts method calls from arrow function", () => {
+      const { tree, parser, root } = parseJs(`
+const start = () => {
+  server.listen(3000);
+};
+`);
+      const result = extractor.extractCallGraph(root);
+
+      const calls = result.filter((e) => e.caller === "start");
+      expect(calls.some((e) => e.callee === "server.listen")).toBe(true);
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+
+  // ---- JS: comprehensive ----
+
+  describe("JavaScript - comprehensive file", () => {
+    it("handles a realistic JS module using ESM exports", () => {
+      const { tree, parser, root } = parseJs(`
+import path from "path";
+import { readFileSync } from "fs";
+
+class ConfigLoader {
+  constructor(dir) {
+    this.dir = dir;
+  }
+
+  load(filename) {
+    const fullPath = path.join(this.dir, filename);
+    return readFileSync(fullPath, "utf8");
+  }
+}
+
+export function createLoader(dir) {
+  return new ConfigLoader(dir);
+}
+
+export default ConfigLoader;
+`);
+      const result = extractor.extractStructure(root);
+
+      // Imports
+      expect(result.imports).toHaveLength(2);
+      expect(result.imports[0].source).toBe("path");
+      expect(result.imports[1].source).toBe("fs");
+
+      // Classes
+      expect(result.classes).toHaveLength(1);
+      expect(result.classes[0].name).toBe("ConfigLoader");
+      expect(result.classes[0].methods).toContain("constructor");
+      expect(result.classes[0].methods).toContain("load");
+
+      // Functions
+      const fnNames = result.functions.map((f) => f.name);
+      expect(fnNames).toContain("createLoader");
+
+      // Exports
+      const exportNames = result.exports.map((e) => e.name);
+      expect(exportNames).toContain("createLoader");
+      // Note: bare `export default Identifier;` is not captured by the extractor;
+      // only default-exported declarations (functions/classes) set isDefault.
+
+      // Call graph
+      const calls = extractor.extractCallGraph(root);
+      const loadCalls = calls.filter((e) => e.caller === "load");
+      expect(loadCalls.some((e) => e.callee.includes("join"))).toBe(true);
+      expect(loadCalls.some((e) => e.callee === "readFileSync")).toBe(true);
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+});
