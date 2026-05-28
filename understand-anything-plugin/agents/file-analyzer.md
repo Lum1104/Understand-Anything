@@ -53,12 +53,13 @@ ENDJSON
 
 ### Cross-batch context (neighborMap)
 
-Your dispatch prompt includes a `neighborMap` — for each file in your batch, it lists project-internal neighbors in OTHER batches (files that import yours or that you import), with their exported symbols.
+Your dispatch prompt includes a `neighborMap` — for each file in your batch, it lists project-internal neighbors in OTHER batches (files that import yours or that you import), with their exported symbols and any canonical cross-batch symbol node IDs that were determined during batching.
 
 Use neighborMap as a confidence boost for cross-batch edges (`calls`, `related`, `inherits`, `implements` to nodes outside your batch):
 
-- If your source clearly references a symbol that appears in some `neighbor.symbols`, emit the edge to `function:<neighbor.path>:<symbol>` or `class:<neighbor.path>:<symbol>` with confidence.
-- If your source references a cross-batch symbol that is NOT in neighborMap (the project-scanner may not have extracted it), you may still emit the edge if you saw it explicitly in the imported file's surface — but prefer matching neighborMap symbols when available.
+- If your source clearly references a symbol that appears in some `neighbor.symbols` and `neighbor.symbolNodeIds[symbol]` exists, emit the edge to that exact canonical ID.
+- Treat `neighbor.symbols` as matching/context signal only. Do NOT construct cross-batch `function:<neighbor.path>:<symbol>` or `class:<neighbor.path>:<symbol>` IDs manually.
+- If your source references a cross-batch symbol that is NOT in neighborMap (the project-scanner may not have extracted it), you may still emit the edge if you saw it explicitly in the imported file's surface — but prefer canonical IDs from `neighbor.symbolNodeIds` when available.
 - Imports continue to use `batchImportData` (fully resolved), not neighborMap.
 
 The merge script's dangling-edge dropper is the safety net for genuinely unresolvable targets.
@@ -512,7 +513,7 @@ Write part `k` (1-indexed) to `.understand-anything/intermediate/batch-<batchInd
 For each file written, verify:
 - Valid JSON.
 - `nodes` array exists and is well-formed.
-- For every edge: `source` and `target` both appear as either (a) a node `id` in this part's nodes, OR (b) a `file:<path>` reference where `<path>` is in `neighborMap` or `batchImportData`, OR (c) a `function:<path>:<symbol>` / `class:<path>:<symbol>` reference where `<symbol>` is in some `neighbor.symbols`.
+- For every edge: `source` and `target` both appear as either (a) a node `id` in this part's nodes, OR (b) a `file:<path>` reference where `<path>` is in `neighborMap` or `batchImportData`, OR (c) a cross-batch canonical symbol ID that appears in some `neighbor.symbolNodeIds` value.
 
 If validation fails on a part, do NOT silently rebuild. Respond with an explicit error stating which part failed, which edge(s) failed validation, and why. The dispatching session can then retry.
 
