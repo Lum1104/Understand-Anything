@@ -230,4 +230,168 @@ class Bar {}
       parser.delete();
     });
   });
+
+  // ---- TypeScript: imports ----
+
+  describe("TypeScript - extractStructure - imports", () => {
+    it("extracts named imports", () => {
+      const { tree, parser, root } = parseTs(`
+import { useState, useEffect } from "react";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(1);
+      expect(result.imports[0].source).toBe("react");
+      expect(result.imports[0].specifiers).toContain("useState");
+      expect(result.imports[0].specifiers).toContain("useEffect");
+      expect(result.imports[0].lineNumber).toBe(2);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts default import", () => {
+      const { tree, parser, root } = parseTs(`
+import React from "react";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(1);
+      expect(result.imports[0].source).toBe("react");
+      expect(result.imports[0].specifiers).toContain("React");
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts namespace import", () => {
+      const { tree, parser, root } = parseTs(`
+import * as fs from "fs";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(1);
+      expect(result.imports[0].source).toBe("fs");
+      expect(result.imports[0].specifiers).toContain("* as fs");
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts aliased named import", () => {
+      const { tree, parser, root } = parseTs(`
+import { Component as Comp } from "@angular/core";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(1);
+      expect(result.imports[0].specifiers).toContain("Comp");
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts multiple import statements", () => {
+      const { tree, parser, root } = parseTs(`
+import { A } from "./a";
+import { B } from "./b";
+import { C } from "./c";
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.imports).toHaveLength(3);
+      expect(result.imports.map((i) => i.source)).toEqual(["./a", "./b", "./c"]);
+
+      tree.delete();
+      parser.delete();
+    });
+  });
+
+  // ---- TypeScript: exports ----
+
+  describe("TypeScript - extractStructure - exports", () => {
+    it("extracts named export of function", () => {
+      const { tree, parser, root } = parseTs(`
+export function fetchUser(id: string): Promise<User> {
+  return db.find(id);
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.exports).toHaveLength(1);
+      expect(result.exports[0].name).toBe("fetchUser");
+      expect(result.exports[0].isDefault).toBeFalsy();
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts default export of function", () => {
+      const { tree, parser, root } = parseTs(`
+export default function App() {
+  return null;
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      const defaultExport = result.exports.find((e) => e.isDefault);
+      expect(defaultExport).toBeDefined();
+      expect(defaultExport?.name).toBe("App");
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts export of class", () => {
+      const { tree, parser, root } = parseTs(`
+export class AuthService {}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.exports.some((e) => e.name === "AuthService")).toBe(true);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts export clause (re-exports)", () => {
+      const { tree, parser, root } = parseTs(`
+export { foo, bar };
+`);
+      const result = extractor.extractStructure(root);
+
+      const names = result.exports.map((e) => e.name);
+      expect(names).toContain("foo");
+      expect(names).toContain("bar");
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("extracts export of const arrow function", () => {
+      const { tree, parser, root } = parseTs(`
+export const multiply = (a: number, b: number) => a * b;
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.exports.some((e) => e.name === "multiply")).toBe(true);
+
+      tree.delete();
+      parser.delete();
+    });
+
+    it("does not duplicate exports", () => {
+      const { tree, parser, root } = parseTs(`
+export function doThing() {}
+export function doThing() {}
+`);
+      const result = extractor.extractStructure(root);
+      const names = result.exports.map((e) => e.name);
+      const unique = new Set(names);
+      expect(names.length).toBe(unique.size);
+
+      tree.delete();
+      parser.delete();
+    });
+  });
 });
