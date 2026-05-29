@@ -1,6 +1,6 @@
 import type { StructuralAnalysis, CallGraphEntry } from "../../types.js";
 import type { LanguageExtractor, TreeSitterNode } from "./types.js";
-import { getStringValue } from "./base-extractor.js";
+import { findChild, getStringValue, traverse } from "./base-extractor.js";
 
 /**
  * Extract parameter names from a formal_parameters node.
@@ -231,6 +231,160 @@ export class TypeScriptExtractor implements LanguageExtractor {
           exportedNames,
         );
         break;
+
+      case "expression_statement":
+        this.extractAmdDefine(
+          node,
+          functions,
+          classes,
+          imports,
+          exports,
+          exportedNames,
+        );
+        break;
+    }
+  }
+
+  /**
+   * Unwrap AMD-style `define([deps], fn)` / `define(name, [deps], fn)` /
+   * `define(fn)` calls and process the callback body as if its contents were
+   * top-level. Emits one `imports[]` entry per dep string (zipped to the
+   * callback's parameter names as specifiers), and any object literal returned
+   * from the callback becomes `exports[]` entries. Returns silently if the
+   * expression isn't a `define(...)` call, so non-AMD expression statements
+   * pass through unchanged.
+   */
+  private extractAmdDefine(
+    node: TreeSitterNode,
+    functions: StructuralAnalysis["functions"],
+    classes: StructuralAnalysis["classes"],
+    imports: StructuralAnalysis["imports"],
+    exports: StructuralAnalysis["exports"],
+    exportedNames: Set<string>,
+  ): void {
+    const call = findChild(node, "call_expression");
+    if (!call) return;
+
+    const callee = call.childForFieldName("function");
+    if (!callee || callee.type !== "identifier" || callee.text !== "define")
+      return;
+
+    const argsNode = call.childForFieldName("arguments");
+    if (!argsNode) return;
+
+    // Collect non-punctuation, non-comment argument children in order.
+    // Tree-sitter exposes JSDoc blocks between deps and callback as named
+    // `comment` children; without filtering, they'd shift the cursor.
+    const args: TreeSitterNode[] = [];
+    for (let i = 0; i < argsNode.childCount; i++) {
+      const child = argsNode.child(i);
+      if (!child) continue;
+      if (child.type === "(" || child.type === ")" || child.type === ",")
+        continue;
+      if (!child.isNamed) continue;
+      if (child.type === "comment") continue;
+      args.push(child);
+    }
+    if (args.length === 0) return;
+
+    // Skip leading string literal (named define: `define("modName", [deps], fn)`).
+    let cursor = 0;
+    if (args[cursor]?.type === "string") cursor += 1;
+
+    // Optional deps array.
+    let depsArray: TreeSitterNode | null = null;
+    if (args[cursor]?.type === "array") {
+      depsArray = args[cursor];
+      cursor += 1;
+    }
+
+    // Callback must be a function-like node.
+    const callback = args[cursor];
+    if (
+      !callback ||
+      (callback.type !== "arrow_function" &&
+        callback.type !== "function_expression" &&
+        callback.type !== "function")
+    )
+      return;
+
+    // Zip deps[] strings to callback param names → imports.
+    const callbackParams = extractParams(
+      callback.childForFieldName("parameters") ??
+        callback.children.find((c) => c.type === "formal_parameters") ??
+        null,
+    );
+    if (depsArray) {
+      let depIndex = 0;
+      for (let i = 0; i < depsArray.childCount; i++) {
+        const child = depsArray.child(i);
+        if (!child || child.type !== "string") continue;
+        const source = getStringValue(child);
+        const specifier = callbackParams[depIndex];
+        imports.push({
+          source,
+          specifiers: specifier ? [specifier] : [],
+          lineNumber: child.startPosition.row + 1,
+        });
+        depIndex += 1;
+      }
+    }
+
+    // Recurse into the callback body, treating its children as top-level.
+    const body = callback.childForFieldName("body");
+    if (!body) return;
+
+    if (body.type === "statement_block") {
+      for (let i = 0; i < body.childCount; i++) {
+        const child = body.child(i);
+        if (!child || !child.isNamed) continue;
+        this.processTopLevelNode(
+          child,
+          functions,
+          classes,
+          imports,
+          exports,
+          exportedNames,
+        );
+      }
+
+      // Returned object literal → exports.
+      for (let i = 0; i < body.childCount; i++) {
+        const child = body.child(i);
+        if (!child || child.type !== "return_statement") continue;
+        const returnArg = child.children.find(
+          (c) => c.type === "object" || c.type === "object_expression",
+        );
+        if (!returnArg) continue;
+        for (let j = 0; j < returnArg.childCount; j++) {
+          const member = returnArg.child(j);
+          if (!member) continue;
+          let exportName: string | undefined;
+          if (member.type === "pair") {
+            const key = member.childForFieldName("key");
+            if (key) exportName = key.text.replace(/^['"`]|['"`]$/g, "");
+          } else if (member.type === "shorthand_property_identifier") {
+            exportName = member.text;
+          }
+          if (exportName && !exportedNames.has(exportName)) {
+            exports.push({
+              name: exportName,
+              lineNumber: member.startPosition.row + 1,
+            });
+            exportedNames.add(exportName);
+          }
+        }
+      }
+    } else {
+      // Arrow function with expression body (e.g. `() => someExpr`).
+      // Collect any function-like nodes and class declarations inline.
+      traverse(body, (n) => {
+        if (n.type === "function_declaration") {
+          this.extractFunction(n, functions);
+        } else if (n.type === "class_declaration") {
+          this.extractClass(n, classes);
+        }
+      });
     }
   }
 
