@@ -8,6 +8,8 @@
   "homepage": "https://github.com/Lum1104/Understand-Anything",
   "repository": "https://github.com/Lum1104/Understand-Anything",
   "license": "MIT",
+  "skills": "./skills",
+  "agents": "./agents",
   "keywords": [
     "codebase-analysis",
     "knowledge-graph",
