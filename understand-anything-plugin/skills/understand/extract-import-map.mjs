@@ -37,6 +37,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve, join, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { validateJsonInputData } from './safe-json-input.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // skills/understand/ -> plugin root is two dirs up
@@ -1388,6 +1389,7 @@ async function main() {
 
   const inputRaw = readFileSync(inputPath, 'utf-8');
   const input = JSON.parse(inputRaw);
+  validateJsonInputData(input);
   const { projectRoot, files } = input;
 
   if (!projectRoot || !Array.isArray(files)) {

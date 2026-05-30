@@ -14,7 +14,7 @@ Thank you for your interest in contributing to Understand Anything! This documen
 
 ### Prerequisites
 
-- Node.js >= 22 (developed on v24)
+- Node.js >= 22.12 (developed on v24)
 - pnpm >= 10 (pinned via `packageManager` field in root `package.json`)
 - Git for version control
 

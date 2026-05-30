@@ -5,6 +5,12 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import {
+  hasControlCharacters,
+  isDeniedSourcePreviewPath,
+  isRealPathInsideRoot,
+  normalizeSourcePreviewPath,
+} from "./src/utils/sourcePreviewPolicy";
 
 // Generate a one-time token when the server process starts.
 // This token is printed to the terminal and must be in the URL
@@ -42,7 +48,8 @@ function normalizeGraphPath(filePath: string, projectRoot: string): string | nul
   if (
     !normalized ||
     normalized === "." ||
-    normalized.includes("\0") ||
+    hasControlCharacters(normalized) ||
+    isDeniedSourcePreviewPath(normalized) ||
     normalized === ".." ||
     normalized.startsWith(`..${path.sep}`) ||
     path.isAbsolute(normalized)
@@ -61,7 +68,7 @@ function graphFilePathSet(graphFile: string, projectRoot: string): Set<string> {
     for (const node of raw.nodes ?? []) {
       if (typeof node.filePath !== "string") continue;
       const normalized = normalizeGraphPath(node.filePath, projectRoot);
-      if (normalized) allowed.add(normalized);
+      if (normalized && !isDeniedSourcePreviewPath(normalized)) allowed.add(normalized);
     }
   } catch {
     return allowed;
@@ -114,10 +121,10 @@ function rejectFileRequest(message: string, statusCode = 400) {
 function readSourceFile(url: URL) {
   const requestedPath = url.searchParams.get("path") ?? "";
   if (!requestedPath) return rejectFileRequest("Missing path");
-  if (requestedPath.includes("\0")) return rejectFileRequest("Invalid path");
-  if (path.isAbsolute(requestedPath)) return rejectFileRequest("Absolute paths are not allowed");
+  const previewPath = normalizeSourcePreviewPath(requestedPath);
+  if (!previewPath) return rejectFileRequest("Invalid path");
 
-  const normalizedPath = path.normalize(requestedPath);
+  const normalizedPath = path.normalize(previewPath);
   if (
     normalizedPath === "." ||
     normalizedPath.startsWith(`..${path.sep}`) ||
@@ -144,6 +151,9 @@ function readSourceFile(url: URL) {
     return rejectFileRequest("Path must stay inside the project");
   }
   const safeRelativePath = relativeToRoot.split(path.sep).join("/");
+  if (isDeniedSourcePreviewPath(safeRelativePath)) {
+    return rejectFileRequest("Sensitive files cannot be previewed", 403);
+  }
   if (!graphFilePathSet(graphFile, projectRoot).has(safeRelativePath)) {
     return rejectFileRequest("File is not in the knowledge graph", 404);
   }
@@ -151,6 +161,11 @@ function readSourceFile(url: URL) {
   let stat: fs.Stats;
   try {
     stat = fs.statSync(absoluteFile);
+    const projectRootRealPath = fs.realpathSync(projectRoot);
+    const fileRealPath = fs.realpathSync(absoluteFile);
+    if (!isRealPathInsideRoot(projectRootRealPath, fileRealPath)) {
+      return rejectFileRequest("Path must stay inside the project");
+    }
   } catch {
     return rejectFileRequest("File not found", 404);
   }
@@ -240,7 +255,7 @@ export default defineConfig({
           const address = server.httpServer?.address();
           const port = typeof address === "object" && address ? address.port : 5173;
           console.log(
-            `\n  🔑  Dashboard URL: http://127.0.0.1:${port}/?token=${ACCESS_TOKEN}\n`
+            `\n  🔑  Dashboard URL: http://127.0.0.1:${port}/?token=***\n`,
           );
         });
 

@@ -5,10 +5,12 @@ import { DEFAULT_IGNORE_PATTERNS } from "./ignore-filter.js";
 const HEADER = `# .understandignore — patterns for files/dirs to exclude from analysis
 # Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
 # Lines below are suggestions — uncomment to activate.
-# Use ! prefix to force-include something excluded by defaults.
+# Use ! prefix to force-include non-sensitive files excluded by defaults.
+# Sensitive files are hard-denied and cannot be re-included: .env*, keys, certs,
+# credentials, secrets, database files, and dumps.
 #
-# Built-in defaults (always excluded unless negated):
-#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+# Built-in defaults (always excluded unless negated, except sensitive hard-deny):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, .env*, keys, certs, etc.
 #
 `;
 

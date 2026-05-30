@@ -1,6 +1,7 @@
 import ignore, { type Ignore } from "ignore";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { SENSITIVE_FILE_PATTERNS, isSensitiveFilePath } from "./safety.js";
 
 /**
  * Hardcoded default ignore patterns matching the project-scanner agent's
@@ -31,6 +32,9 @@ export const DEFAULT_IGNORE_PATTERNS: string[] = [
   "package-lock.json",
   "yarn.lock",
   "pnpm-lock.yaml",
+
+  // Sensitive files (hard-denied even if user negates defaults)
+  ...SENSITIVE_FILE_PATTERNS,
 
   // Binary/asset files
   "*.png",
@@ -82,6 +86,10 @@ export interface IgnoreFilter {
  * 1. Hardcoded defaults
  * 2. .understand-anything/.understandignore (if exists)
  * 3. .understandignore at project root (if exists)
+ *
+ * Security-sensitive files are hard-denied before the merged ignore matcher,
+ * so user `!` negation cannot re-include secrets, credentials, keys, certs,
+ * database files, or dumps.
  */
 export function createIgnoreFilter(projectRoot: string): IgnoreFilter {
   const ig: Ignore = ignore();
@@ -105,6 +113,7 @@ export function createIgnoreFilter(projectRoot: string): IgnoreFilter {
 
   return {
     isIgnored(relativePath: string): boolean {
+      if (isSensitiveFilePath(relativePath)) return true;
       return ig.ignores(relativePath);
     },
   };

@@ -4,7 +4,7 @@
 An open-source tool combining LLM intelligence + static analysis to produce interactive dashboards for understanding codebases.
 
 ## Prerequisites
-- Node.js >= 22 (developed on v24)
+- Node.js >= 22.12 (developed on v24)
 - pnpm >= 10 (pinned via `packageManager` field in root `package.json`)
 
 ## Architecture

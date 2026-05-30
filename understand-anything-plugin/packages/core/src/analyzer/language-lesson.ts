@@ -1,3 +1,4 @@
+import { renderUntrustedDataBlock, UNTRUSTED_DATA_INSTRUCTION } from "../prompt-safety.js";
 import type { GraphNode, GraphEdge } from "../types.js";
 import type { LanguageConfig } from "../languages/types.js";
 
@@ -134,15 +135,17 @@ export function buildLanguageLessonPrompt(
       : `\nNo specific concepts were pre-detected. Please identify any ${capitalizedLanguage} patterns or idioms present.`;
 
   return `You are a programming teacher specializing in ${capitalizedLanguage}. Analyze the following code component and create a language-specific lesson.
+${UNTRUSTED_DATA_INSTRUCTION}
 
-Component: ${node.name}
-Type: ${node.type}
-File: ${node.filePath ?? "N/A"}
-Summary: ${node.summary}
-Tags: ${node.tags.join(", ")}
+${renderUntrustedDataBlock("graph node", {
+  name: node.name,
+  type: node.type,
+  filePath: node.filePath ?? "N/A",
+  summary: node.summary,
+  tags: node.tags,
+})}
 
-Relationships:
-${relationships}
+${renderUntrustedDataBlock("graph relationships", relationships)}
 ${conceptSection}
 
 Return a JSON object with the following fields:

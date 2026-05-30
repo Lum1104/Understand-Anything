@@ -385,24 +385,22 @@ describe('scan-project.mjs — category assignment (project-scanner.md Step 4)',
     expect(byPath(r.output, 'docker-compose.yml').language).toBe('yaml');
   });
 
-  // Regression: path.extname returns '' for `.env` and the second segment
-  // for `.env.local` — neither hits CATEGORY_BY_EXT['.env']. Dotfile-style
-  // configs were falling through to `code` / `unknown`. Caught by Codex
-  // review on PR #204.
-  it('dotfile configs (.env, .env.local, .env.production) map to config + env language', () => {
+  // Regression: sensitive dotenv files used to be categorized as config/env.
+  // They are now hard-denied before scanning so secrets cannot enter graph
+  // prompts or dashboard previews, even as config nodes.
+  it('sensitive dotfile configs (.env, .env.local, .env.production) are excluded from scans', () => {
     projectRoot = setupTree({
       '.env': 'API_KEY=abc\n',
       '.env.local': 'LOCAL=1\n',
       '.env.production': 'PROD=1\n',
+      'src/index.ts': 'export const x = 1;\n',
     });
     const r = runScript(projectRoot);
     expect(r.status).toBe(0);
     for (const p of ['.env', '.env.local', '.env.production']) {
-      expect(byPath(r.output, p).fileCategory).toBe('config');
-      // LANGUAGE_BY_EXT['.env'] -> 'config' (the language id itself; not
-      // a typo — the language for env files is the 'config' bucket).
-      expect(byPath(r.output, p).language).toBe('config');
+      expect(byPath(r.output, p)).toBeUndefined();
     }
+    expect(byPath(r.output, 'src/index.ts').fileCategory).toBe('code');
   });
 });
 
@@ -453,6 +451,20 @@ describe('scan-project.mjs — .understandignore handling', () => {
     // The defaults dropped drop.log — that's a baseline default drop,
     // NOT a user-driven drop. filteredByIgnore should be 0.
     expect(r.output.filteredByIgnore).toBe(0);
+  });
+
+  it('does not allow negation to re-include sensitive files', () => {
+    projectRoot = setupTree({
+      '.understandignore': '!.env\n!secrets/token.txt\n',
+      '.env': 'API_KEY=abc\n',
+      'secrets/token.txt': 'token\n',
+      'src/index.ts': 'export const x = 1;\n',
+    });
+    const r = runScript(projectRoot);
+    expect(r.status).toBe(0);
+    expect(byPath(r.output, '.env')).toBeUndefined();
+    expect(byPath(r.output, 'secrets/token.txt')).toBeUndefined();
+    expect(byPath(r.output, 'src/index.ts')).toBeDefined();
   });
 });
 

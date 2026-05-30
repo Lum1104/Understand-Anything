@@ -1,3 +1,4 @@
+import { renderUntrustedDataBlock, UNTRUSTED_DATA_INSTRUCTION } from "../prompt-safety.js";
 import type { KnowledgeGraph, Layer } from "../types.js";
 
 /**
@@ -155,9 +156,9 @@ export function buildLayerDetectionPrompt(graph: KnowledgeGraph): string {
   const fileListStr = filePaths.map((f) => `  - ${f}`).join("\n");
 
   return `You are a software architecture analyst. Given the following list of file paths from a codebase, identify the logical architectural layers.
+${UNTRUSTED_DATA_INSTRUCTION}
 
-File paths:
-${fileListStr}
+${renderUntrustedDataBlock("graph file paths", fileListStr)}
 
 Return a JSON array of 3-7 layers. Each layer object must have:
 - "name": A short layer name (e.g., "API", "Data", "UI")

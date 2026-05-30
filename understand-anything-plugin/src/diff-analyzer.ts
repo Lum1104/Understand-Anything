@@ -1,3 +1,4 @@
+import { renderUntrustedDataBlock } from "@understand-anything/core";
 import type {
   KnowledgeGraph,
   GraphNode,
@@ -93,7 +94,7 @@ export function buildDiffContext(
 export function formatDiffAnalysis(ctx: DiffContext): string {
   const lines: string[] = [];
 
-  lines.push(`# Diff Analysis: ${ctx.projectName}`);
+  lines.push(`Project: ${ctx.projectName}`);
   lines.push("");
 
   lines.push("## Changed Components");
@@ -194,5 +195,9 @@ export function formatDiffAnalysis(ctx: DiffContext): string {
   }
   lines.push("");
 
-  return lines.join("\n");
+  return [
+    "# Diff Analysis",
+    "",
+    renderUntrustedDataBlock("diff graph context", lines.join("\n")),
+  ].join("\n");
 }

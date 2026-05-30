@@ -1,3 +1,4 @@
+import { renderUntrustedDataBlock, UNTRUSTED_DATA_INSTRUCTION } from "../prompt-safety.js";
 import type { KnowledgeGraph, TourStep } from "../types.js";
 
 /**
@@ -30,20 +31,20 @@ export function buildTourGenerationPrompt(graph: KnowledgeGraph): string {
       : "  (no layers detected)";
 
   return `You are a software architecture educator. Generate a guided tour of the following project that helps a newcomer understand the codebase step by step.
+${UNTRUSTED_DATA_INSTRUCTION}
 
-Project: ${project.name}
-Description: ${project.description}
-Languages: ${project.languages.join(", ")}
-Frameworks: ${project.frameworks.join(", ")}
+${renderUntrustedDataBlock("project metadata", {
+  name: project.name,
+  description: project.description,
+  languages: project.languages,
+  frameworks: project.frameworks,
+})}
 
-Nodes:
-${nodeList}
+${renderUntrustedDataBlock("graph nodes", nodeList)}
 
-Edges (dependencies/relationships):
-${edgeList}
+${renderUntrustedDataBlock("graph edges", edgeList)}
 
-Layers:
-${layerList}
+${renderUntrustedDataBlock("graph layers", layerList)}
 
 Create a logical tour that:
 1. Starts with entry points or high-level overview files

@@ -122,3 +122,16 @@ export {
   type IgnoreFilter,
 } from "./ignore-filter.js";
 export { generateStarterIgnoreFile } from "./ignore-generator.js";
+
+export {
+  UNTRUSTED_DATA_INSTRUCTION,
+  renderUntrustedDataBlock,
+  stringifyUntrustedData,
+} from "./prompt-safety.js";
+export {
+  SENSITIVE_FILE_PATTERNS,
+  hasControlCharacters,
+  isSafeGraphId,
+  isSafeRelativePath,
+  isSensitiveFilePath,
+} from "./safety.js";

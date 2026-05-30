@@ -4,6 +4,10 @@
   "type": "module",
   "main": ".opencode/plugins/understand-anything.js",
   "packageManager": "pnpm@10.6.2+sha512.47870716bea1572b53df34ad8647b42962bc790ce2bf4562ba0f643237d7302a3d6a8ecef9e4bdfc01d23af1969aa90485d4cebb0b9638fa5ef1daef656f6c1b",
+  "engines": {
+    "node": ">=22.12",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "prepare": "pnpm --filter @understand-anything/core build",
     "build": "pnpm -r build",
@@ -34,6 +38,15 @@
       "tree-sitter-ruby",
       "tree-sitter-rust",
       "tree-sitter-typescript"
-    ]
+    ],
+    "overrides": {
+      "picomatch@<2.3.2": "2.3.2",
+      "picomatch@>=4.0.0 <4.0.4": "4.0.4",
+      "devalue@>=5.6.3 <=5.8.0": "5.8.1",
+      "smol-toml@<1.6.1": "1.6.1",
+      "postcss@<8.5.10": "8.5.10",
+      "vite@>=7.0.0 <=7.3.1": "7.3.3",
+      "brace-expansion@>=5.0.0 <5.0.6": "5.0.6"
+    }
   }
 }

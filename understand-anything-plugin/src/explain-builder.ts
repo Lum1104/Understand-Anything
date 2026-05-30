@@ -1,3 +1,4 @@
+import { renderUntrustedDataBlock, UNTRUSTED_DATA_INSTRUCTION } from "@understand-anything/core";
 import type {
   KnowledgeGraph,
   GraphNode,
@@ -110,7 +111,13 @@ export function formatExplainPrompt(ctx: ExplainContext): string {
     return [
       `# Component Not Found`,
       ``,
-      `The path "${ctx.path}" was not found in the knowledge graph for ${ctx.projectName}.`,
+      `The requested component was not found in the knowledge graph.`,
+      ``,
+      UNTRUSTED_DATA_INSTRUCTION,
+      renderUntrustedDataBlock("requested component path", {
+        projectName: ctx.projectName,
+        path: ctx.path,
+      }),
       ``,
       `Possible reasons:`,
       `- The file hasn't been analyzed yet — try running /understand first`,
@@ -120,43 +127,43 @@ export function formatExplainPrompt(ctx: ExplainContext): string {
   }
 
   const { targetNode, childNodes, connectedNodes, relevantEdges, layer } = ctx;
-  const lines: string[] = [];
+  const dataLines: string[] = [];
 
-  lines.push(`# Deep Dive: ${targetNode.name}`);
-  lines.push("");
-  lines.push(
+  dataLines.push(`# Deep Dive: ${targetNode.name}`);
+  dataLines.push("");
+  dataLines.push(
     `**Type:** ${targetNode.type} | **Complexity:** ${targetNode.complexity}`,
   );
   if (targetNode.filePath)
-    lines.push(`**File:** \`${targetNode.filePath}\``);
+    dataLines.push(`**File:** \`${targetNode.filePath}\``);
   if (targetNode.lineRange)
-    lines.push(
+    dataLines.push(
       `**Lines:** ${targetNode.lineRange[0]}-${targetNode.lineRange[1]}`,
     );
-  lines.push("");
-  lines.push(`**Summary:** ${targetNode.summary}`);
-  lines.push("");
+  dataLines.push("");
+  dataLines.push(`**Summary:** ${targetNode.summary}`);
+  dataLines.push("");
 
   if (layer) {
-    lines.push(`## Architectural Layer: ${layer.name}`);
-    lines.push(layer.description);
-    lines.push("");
+    dataLines.push(`## Architectural Layer: ${layer.name}`);
+    dataLines.push(layer.description);
+    dataLines.push("");
   }
 
   if (childNodes.length > 0) {
-    lines.push("## Internal Components");
+    dataLines.push("## Internal Components");
     for (const child of childNodes) {
-      lines.push(`- **${child.name}** (${child.type}): ${child.summary}`);
+      dataLines.push(`- **${child.name}** (${child.type}): ${child.summary}`);
     }
-    lines.push("");
+    dataLines.push("");
   }
 
   if (connectedNodes.length > 0) {
-    lines.push("## Connected Components");
+    dataLines.push("## Connected Components");
     for (const node of connectedNodes) {
-      lines.push(`- **${node.name}** (${node.type}): ${node.summary}`);
+      dataLines.push(`- **${node.name}** (${node.type}): ${node.summary}`);
     }
-    lines.push("");
+    dataLines.push("");
   }
 
   if (relevantEdges.length > 0) {
@@ -166,31 +173,36 @@ export function formatExplainPrompt(ctx: ExplainContext): string {
         n,
       ]),
     );
-    lines.push("## Relationships");
+    dataLines.push("## Relationships");
     for (const edge of relevantEdges) {
       if (edge.type === "contains") continue;
       const src = nodeMap.get(edge.source)?.name ?? edge.source;
       const tgt = nodeMap.get(edge.target)?.name ?? edge.target;
       const desc = edge.description ? ` — ${edge.description}` : "";
-      lines.push(`- ${src} --[${edge.type}]--> ${tgt}${desc}`);
+      dataLines.push(`- ${src} --[${edge.type}]--> ${tgt}${desc}`);
     }
-    lines.push("");
+    dataLines.push("");
   }
 
   if (targetNode.languageNotes) {
-    lines.push("## Language Notes");
-    lines.push(targetNode.languageNotes);
-    lines.push("");
+    dataLines.push("## Language Notes");
+    dataLines.push(targetNode.languageNotes);
+    dataLines.push("");
   }
 
-  lines.push("## Instructions");
-  lines.push("Provide a thorough explanation of this component:");
-  lines.push("1. What it does and why it exists in the project");
-  lines.push("2. How data flows through it (inputs, processing, outputs)");
-  lines.push("3. How it interacts with connected components");
-  lines.push("4. Any patterns, idioms, or design decisions worth noting");
-  lines.push("5. Potential gotchas or areas of complexity");
-  lines.push("");
-
-  return lines.join("\n");
+  return [
+    "# Deep Dive Request",
+    "",
+    UNTRUSTED_DATA_INSTRUCTION,
+    renderUntrustedDataBlock("component graph context", dataLines.join("\n")),
+    "",
+    "## Trusted Instructions",
+    "Provide a thorough explanation of this component:",
+    "1. What it does and why it exists in the project",
+    "2. How data flows through it (inputs, processing, outputs)",
+    "3. How it interacts with connected components",
+    "4. Any patterns, idioms, or design decisions worth noting",
+    "5. Potential gotchas or areas of complexity",
+    "",
+  ].join("\n");
 }

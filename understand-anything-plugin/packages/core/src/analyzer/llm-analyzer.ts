@@ -1,3 +1,4 @@
+import { renderUntrustedDataBlock, UNTRUSTED_DATA_INSTRUCTION } from "../prompt-safety.js";
 export interface LLMFileAnalysis {
   fileSummary: string;
   tags: string[];
@@ -22,14 +23,13 @@ export function buildFileAnalysisPrompt(
   projectContext: string,
 ): string {
   return `You are a code analysis assistant. Analyze the following source file and return a JSON object.
+${UNTRUSTED_DATA_INSTRUCTION}
 
-Project context: ${projectContext}
+${renderUntrustedDataBlock("project context", projectContext)}
 
-File: ${filePath}
+${renderUntrustedDataBlock("file path", filePath)}
 
-\`\`\`
-${content}
-\`\`\`
+${renderUntrustedDataBlock("source file content", content)}
 
 Return a JSON object with the following fields:
 - "fileSummary": A concise summary of what this file does (1-2 sentences).
@@ -55,14 +55,17 @@ export function buildProjectSummaryPrompt(
   if (sampleFiles.length > 0) {
     samplesStr = "\n\nSample files:\n";
     for (const sample of sampleFiles) {
-      samplesStr += `\n--- ${sample.path} ---\n\`\`\`\n${sample.content}\n\`\`\`\n`;
+      samplesStr += `\n${renderUntrustedDataBlock(`sample file ${sample.path}`, {
+        path: sample.path,
+        content: sample.content,
+      })}\n`;
     }
   }
 
   return `You are a code analysis assistant. Analyze the following project structure and return a JSON object describing the project.
+${UNTRUSTED_DATA_INSTRUCTION}
 
-File list:
-${fileListStr}${samplesStr}
+${renderUntrustedDataBlock("project file list", fileListStr)}${samplesStr}
 
 Return a JSON object with the following fields:
 - "description": A concise description of what this project does (2-3 sentences).

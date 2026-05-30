@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { isSafeGraphId, isSafeRelativePath } from "./safety.js";
+
+const SafeGraphIdSchema = z.string().refine(isSafeGraphId, {
+  message: "Graph IDs must not be empty or contain control characters/newlines",
+});
+
+const SafeRelativePathSchema = z.string().refine(isSafeRelativePath, {
+  message: "File paths must be safe project-relative paths without control characters/newlines",
+});
 
 // Edge types (35 values across 8 categories)
 export const EdgeTypeSchema = z.enum([
@@ -366,7 +375,7 @@ const KnowledgeMetaSchema = z.object({
 }).passthrough();
 
 export const GraphNodeSchema = z.object({
-  id: z.string(),
+  id: SafeGraphIdSchema,
   type: z.enum([
     "file", "function", "class", "module", "concept",
     "config", "document", "service", "table", "endpoint",
@@ -375,7 +384,7 @@ export const GraphNodeSchema = z.object({
     "article", "entity", "topic", "claim", "source",
   ]),
   name: z.string(),
-  filePath: z.string().optional(),
+  filePath: SafeRelativePathSchema.optional(),
   lineRange: z.tuple([z.number(), z.number()]).optional(),
   summary: z.string(),
   tags: z.array(z.string()),
@@ -386,8 +395,8 @@ export const GraphNodeSchema = z.object({
 }).passthrough();
 
 export const GraphEdgeSchema = z.object({
-  source: z.string(),
-  target: z.string(),
+  source: SafeGraphIdSchema,
+  target: SafeGraphIdSchema,
   type: EdgeTypeSchema,
   direction: z.enum(["forward", "backward", "bidirectional"]),
   description: z.string().optional(),
@@ -395,17 +404,17 @@ export const GraphEdgeSchema = z.object({
 });
 
 export const LayerSchema = z.object({
-  id: z.string(),
+  id: SafeGraphIdSchema,
   name: z.string(),
   description: z.string(),
-  nodeIds: z.array(z.string()),
+  nodeIds: z.array(SafeGraphIdSchema),
 });
 
 export const TourStepSchema = z.object({
   order: z.number(),
   title: z.string(),
   description: z.string(),
-  nodeIds: z.array(z.string()),
+  nodeIds: z.array(SafeGraphIdSchema),
   languageLesson: z.string().optional(),
 });
 

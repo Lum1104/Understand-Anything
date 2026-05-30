@@ -1,4 +1,4 @@
-import { SearchEngine } from "@understand-anything/core";
+import { SearchEngine, renderUntrustedDataBlock } from "@understand-anything/core";
 import type {
   KnowledgeGraph,
   GraphNode,
@@ -143,5 +143,5 @@ export function formatContextForPrompt(context: ChatContext): string {
     lines.push("");
   }
 
-  return lines.join("\n");
+  return renderUntrustedDataBlock("knowledge graph search context", lines.join("\n"));
 }

@@ -25,6 +25,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { validateJsonInputData } from './safe-json-input.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // skills/understand/ -> plugin root is two dirs up
@@ -59,9 +60,9 @@ async function main() {
     process.exit(1);
   }
 
-  const { projectRoot, sourceFilePaths, gitCommitHash } = JSON.parse(
-    readFileSync(inputPath, 'utf-8'),
-  );
+  const input = JSON.parse(readFileSync(inputPath, 'utf-8'));
+  validateJsonInputData(input);
+  const { projectRoot, sourceFilePaths, gitCommitHash } = input;
 
   if (!projectRoot || !Array.isArray(sourceFilePaths) || typeof gitCommitHash !== 'string') {
     throw new Error(
