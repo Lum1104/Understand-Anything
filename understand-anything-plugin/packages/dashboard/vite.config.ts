@@ -114,7 +114,7 @@ function detectLanguage(filePath: string): string {
 
 function sendJson(res: import("http").ServerResponse, statusCode: number, payload: unknown) {
   res.statusCode = statusCode;
-  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(payload));
 }
 

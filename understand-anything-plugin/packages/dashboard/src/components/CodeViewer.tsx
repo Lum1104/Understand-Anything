@@ -3,6 +3,7 @@ import { Highlight, themes } from "prism-react-renderer";
 import { useDashboardStore } from "../store";
 import { useI18n } from "../contexts/I18nContext";
 import { buildGuideLines, type GuideLine } from "../utils/guideAnnotations";
+import type { GuideAnnotationRecord } from "../store";
 
 interface CodeViewerProps {
   accessToken: string;
@@ -31,6 +32,23 @@ type GuideRenderState =
 function fileContentUrl(filePath: string, token: string): string {
   const params = new URLSearchParams({ token, path: filePath });
   return `/file-content.json?${params.toString()}`;
+}
+
+function guideAnnotationsUrl(token: string): string {
+  const params = new URLSearchParams({ token });
+  return `/guide-annotations.json?${params.toString()}`;
+}
+
+function isGuideAnnotationRecord(entry: unknown): entry is GuideAnnotationRecord {
+  if (!entry || typeof entry !== "object") return false;
+  const record = entry as Record<string, unknown>;
+  return (
+    typeof record.nodeId === "string" &&
+    typeof record.line === "number" &&
+    Number.isInteger(record.line) &&
+    record.line > 0 &&
+    typeof record.text === "string"
+  );
 }
 
 function fallbackLanguage(filePath: string | undefined): string {
@@ -72,7 +90,9 @@ export default function CodeViewer({
   const guideAnnotationsByNodeId = useDashboardStore((s) => s.guideAnnotationsByNodeId);
   const viewMode = useDashboardStore((s) => s.viewMode);
   const codeViewerNodeId = useDashboardStore((s) => s.codeViewerNodeId);
+  const codeViewerOpenRequest = useDashboardStore((s) => s.codeViewerOpenRequest);
   const closeCodeViewer = useDashboardStore((s) => s.closeCodeViewer);
+  const setGuideAnnotations = useDashboardStore((s) => s.setGuideAnnotations);
   const activeGraph = viewMode === "domain" && domainGraph ? domainGraph : graph;
   // Files tab always builds its tree from the structural graph, so a node ID opened from
   // there may not exist in the active (domain) graph — fall back to the structural graph.
@@ -128,6 +148,27 @@ export default function CodeViewer({
 
     return () => controller.abort();
   }, [accessToken, node?.filePath]);
+
+  useEffect(() => {
+    if (!node || accessToken === "__demo__") return;
+
+    const controller = new AbortController();
+    fetch(guideAnnotationsUrl(accessToken), { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as { annotations?: unknown[] };
+      })
+      .then((data) => {
+        if (!data || !Array.isArray(data.annotations)) return;
+        setGuideAnnotations(data.annotations.filter(isGuideAnnotationRecord));
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        console.warn("Failed to refresh guide annotations:", err);
+      });
+
+    return () => controller.abort();
+  }, [accessToken, codeViewerOpenRequest, node, setGuideAnnotations]);
 
   const highlightedRange = useMemo(() => {
     if (!node?.lineRange) return null;

@@ -160,6 +160,7 @@ interface DashboardStore {
   codeViewerOpen: boolean;
   codeViewerNodeId: string | null;
   codeViewerExpanded: boolean;
+  codeViewerOpenRequest: number;
 
   tourActive: boolean;
   currentTourStep: number;
@@ -345,6 +346,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   codeViewerOpen: false,
   codeViewerNodeId: null,
   codeViewerExpanded: false,
+  codeViewerOpenRequest: 0,
 
   tourActive: false,
   currentTourStep: 0,
@@ -597,7 +599,12 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
     }),
 
   openCodeViewer: (nodeId) =>
-    set({ codeViewerOpen: true, codeViewerNodeId: nodeId, codeViewerExpanded: false }),
+    set((state) => ({
+      codeViewerOpen: true,
+      codeViewerNodeId: nodeId,
+      codeViewerExpanded: false,
+      codeViewerOpenRequest: state.codeViewerOpenRequest + 1,
+    })),
   closeCodeViewer: () =>
     set({ codeViewerOpen: false, codeViewerNodeId: null, codeViewerExpanded: false }),
   expandCodeViewer: () => set({ codeViewerExpanded: true }),
