@@ -6,6 +6,7 @@ An open-source tool combining LLM intelligence + static analysis to produce inte
 ## Prerequisites
 - Node.js >= 22 (developed on v24)
 - pnpm >= 10 (pinned via `packageManager` field in root `package.json`)
+- Python >= 3.9 (bundled skill scripts in `skills/**/*.py`; 3.9 is the floor because it ships with macOS via the Xcode Command Line Tools — keep the scripts 3.9-compatible)
 
 ## Architecture
 - **Monorepo** with pnpm workspaces
