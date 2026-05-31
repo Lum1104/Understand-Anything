@@ -6,6 +6,14 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The bundled merge/parse scripts (skills/**/*.py) are invoked by the
+        # skill tests via `python3`. 3.9 is the floor we support because it is
+        # the Python that ships with macOS (Xcode Command Line Tools); the
+        # upper entry tracks a current release. Keep both green.
+        python-version: ["3.9", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +24,10 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: pnpm install
