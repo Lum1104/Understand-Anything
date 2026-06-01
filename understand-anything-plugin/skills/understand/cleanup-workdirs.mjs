@@ -20,6 +20,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  rmdirSync,
   statSync,
 } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
@@ -114,7 +115,7 @@ function moveWorkDirs(stateDir, nowMs) {
         renameSync(join(source, entry.name), join(destination, entry.name));
       }
       try {
-        rmSync(source);
+        rmdirSync(source);
       } catch {
         // Keep intermediate/ when scan-result.json remains for incremental runs.
       }
