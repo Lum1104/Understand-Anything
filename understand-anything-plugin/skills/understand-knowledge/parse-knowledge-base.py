@@ -13,6 +13,8 @@ Output:
     Writes scan-manifest.json to <wiki-directory>/.understand-anything/intermediate/
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
