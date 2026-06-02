@@ -1324,6 +1324,33 @@ class LinkSpecsTests(unittest.TestCase):
         self.assertEqual(edge["source"], "document:specs/auth.md")
         self.assertEqual(edge["target"], "file:src/auth.ts")
 
+    def test_specification_of_type_is_folded_and_flipped(self) -> None:
+        nodes_by_id = {
+            "document:specs/auth.md": _doc_node("specs/auth.md"),
+            "file:src/auth.ts": _file_node("src/auth.ts"),
+        }
+        edges: list[dict[str, Any]] = [
+            {
+                "source": "file:src/auth.ts",
+                "target": "document:specs/auth.md",
+                "type": "specification_of",
+                "direction": "forward",
+                "weight": 0.6,
+            },
+        ]
+
+        dropped, swapped, tagged = mbg.link_specs(nodes_by_id, edges)
+
+        self.assertEqual(dropped, 0)
+        self.assertEqual(swapped, 1)
+        self.assertEqual(len(edges), 1)
+        edge = edges[0]
+        self.assertEqual(edge["type"], "specifies")
+        self.assertEqual(edge["source"], "document:specs/auth.md")
+        self.assertEqual(edge["target"], "file:src/auth.ts")
+        self.assertEqual(edge["direction"], "forward")
+        self.assertIn("normative-spec", nodes_by_id["document:specs/auth.md"]["tags"])
+
     def test_doc_to_doc_and_code_to_code_dropped(self) -> None:
         nodes_by_id = {
             "document:specs/auth.md": _doc_node("specs/auth.md"),

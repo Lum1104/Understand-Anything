@@ -742,11 +742,14 @@ SPEC_TARGET_TYPES: frozenset[str] = frozenset({
     "service", "resource", "pipeline",
 })
 
-# Edge type names that mean "specifies". `specified_by` inverts direction; the
-# linker recovers the correct orientation by node-type classification, so it is
-# safe to fold it in here (the Python merge step does not apply the TS-side
-# edge-type aliases).
-SPEC_EDGE_TYPES: frozenset[str] = frozenset({"specifies", "specified_by"})
+# Edge type names that mean "specifies". `specified_by` / `specification_of`
+# invert direction (code → spec); the linker recovers the correct orientation by
+# node-type classification, so it is safe to fold them in here (the Python merge
+# step does not apply the TS-side edge-type aliases — see EDGE_TYPE_ALIASES in
+# packages/core/src/schema.ts, which folds all three spellings into `specifies`).
+SPEC_EDGE_TYPES: frozenset[str] = frozenset(
+    {"specifies", "specified_by", "specification_of"}
+)
 
 
 def _swap_specifies_in_place(
