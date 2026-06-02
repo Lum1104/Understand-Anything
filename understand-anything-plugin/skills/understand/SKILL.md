@@ -324,7 +324,7 @@ Dispatch prompt template (fill in batch-specific values from `batches.json[i]`):
 > <batchImportData JSON from batches.json[i].batchImportData>
 > ```
 >
-> Cross-batch neighbors with their exported symbols (confidence boost for cross-batch edges):
+> Cross-batch neighbors with their exported symbols and canonical symbol node IDs (confidence boost for cross-batch edges):
 > ```json
 > <neighborMap JSON from batches.json[i].neighborMap>
 > ```

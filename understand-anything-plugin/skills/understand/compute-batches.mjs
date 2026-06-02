@@ -33,11 +33,15 @@ import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
 
 /**
- * For each code file, returns its top-level exported symbol names (functions,
- * classes, exported consts). Per-file errors are swallowed into [] with a
+ * For each code file, returns its top-level exported symbol names plus any
+ * canonical symbol node IDs we can determine deterministically from the
+ * structural analysis. Per-file errors are swallowed into [] / {} with a
  * visible warning so a single bad file does not abort batching.
  *
- * Returns Map<path, string[]>.
+ * Returns {
+ *   exportsByPath: Map<path, string[]>,
+ *   symbolNodeIdsByPath: Map<path, Record<string, string>>,
+ * }.
  */
 async function extractExports(projectRoot, codeFiles) {
   let registry;
@@ -53,10 +57,14 @@ async function extractExports(projectRoot, codeFiles) {
       `Warning: compute-batches: tree-sitter init failed (${err.message}) ` +
       `— all symbols=[] in neighborMap — cross-batch edges limited to file-level\n`,
     );
-    return new Map(codeFiles.map(f => [f.path, []]));
+    return {
+      exportsByPath: new Map(codeFiles.map(f => [f.path, []])),
+      symbolNodeIdsByPath: new Map(codeFiles.map(f => [f.path, {}])),
+    };
   }
 
   const exportsByPath = new Map();
+  const symbolNodeIdsByPath = new Map();
   for (const file of codeFiles) {
     const abs = join(projectRoot, file.path);
     let content;
@@ -69,12 +77,14 @@ async function extractExports(projectRoot, codeFiles) {
         `cross-batch edges to this file limited to file-level\n`,
       );
       exportsByPath.set(file.path, []);
+      symbolNodeIdsByPath.set(file.path, {});
       continue;
     }
     try {
       const analysis = registry.analyzeFile(file.path, content);
       const names = (analysis?.exports || []).map(e => e.name).filter(Boolean);
       exportsByPath.set(file.path, names);
+      symbolNodeIdsByPath.set(file.path, buildSymbolNodeIds(file.path, analysis));
     } catch (err) {
       process.stderr.write(
         `Warning: compute-batches: exports extraction failed for ${file.path} ` +
@@ -82,9 +92,29 @@ async function extractExports(projectRoot, codeFiles) {
         `cross-batch edges to this file limited to file-level\n`,
       );
       exportsByPath.set(file.path, []);
+      symbolNodeIdsByPath.set(file.path, {});
     }
   }
-  return exportsByPath;
+  return { exportsByPath, symbolNodeIdsByPath };
+}
+
+function buildSymbolNodeIds(filePath, analysis) {
+  const classNames = new Set((analysis?.classes || []).map(cls => cls.name));
+  const functionNames = new Set((analysis?.functions || []).map(fn => fn.name));
+  const symbolNodeIds = {};
+
+  for (const exp of analysis?.exports || []) {
+    if (!exp?.name || exp.name === 'default') continue;
+    if (classNames.has(exp.name)) {
+      symbolNodeIds[exp.name] = `class:${filePath}:${exp.name}`;
+      continue;
+    }
+    if (functionNames.has(exp.name)) {
+      symbolNodeIds[exp.name] = `function:${filePath}:${exp.name}`;
+    }
+  }
+
+  return symbolNodeIds;
 }
 
 /**
@@ -342,7 +372,7 @@ async function main() {
 
   process.stderr.write(`Loaded ${files.length} files (${codeFiles.length} code).\n`);
 
-  const exportsByPath = await extractExports(projectRoot, codeFiles);
+  const { exportsByPath, symbolNodeIdsByPath } = await extractExports(projectRoot, codeFiles);
 
   let algorithm = 'louvain';
   let perFileCommunity;
@@ -473,6 +503,7 @@ async function main() {
         path: p,
         batchIndex: batchOf.get(p),
         symbols: exportsByPath.get(p) || [],
+        symbolNodeIds: symbolNodeIdsByPath.get(p) || {},
       }));
 
       if (rawCount > MAX_NEIGHBORS) {

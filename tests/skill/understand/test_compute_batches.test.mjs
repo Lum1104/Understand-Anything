@@ -152,11 +152,9 @@ describe('compute-batches.mjs — exports extraction', () => {
       expect.arrayContaining(['helper']));
   });
 
-  it('emits warning when file is missing from disk (read error path)', () => {
+  it('uses empty symbolNodeIds when export extraction falls back on read error', () => {
     root = mkdtempSync(join(tmpdir(), 'ua-cb-exp-err-'));
     mkdirSync(join(root, '.understand-anything', 'intermediate'), { recursive: true });
-    // Note: NOT creating the file on disk — scan-result.json references it,
-    // but the file doesn't exist, so the read branch fires.
     const scan = {
       name: 'missing-file-test',
       description: '',
@@ -173,11 +171,12 @@ describe('compute-batches.mjs — exports extraction', () => {
       JSON.stringify(scan));
 
     const result = runScript(root);
-    expect(result.status).toBe(0);  // script must still succeed
-    expect(result.stderr).toMatch(
-      /Warning: compute-batches: exports extraction failed for src\/missing\.ts \(read error:/);
+    expect(result.status).toBe(0);
 
     const batches = readBatches(root);
+    const onlyBatch = batches.batches[0];
+    expect(onlyBatch).toBeDefined();
+    expect(onlyBatch.neighborMap).toEqual({});
     expect(batches.exportsByPath['src/missing.ts']).toEqual([]);
   });
 });
@@ -345,7 +344,7 @@ describe('compute-batches.mjs — neighborMap + batchImportData', () => {
     }
   });
 
-  it('neighborMap entries carry symbols when target has exports', () => {
+  it('neighborMap entries carry symbols and canonical symbolNodeIds when target has exports', () => {
     const root = mkdtempSync(join(tmpdir(), 'ua-cb-nbr-'));
     mkdirSync(join(root, '.understand-anything', 'intermediate'), { recursive: true });
     mkdirSync(join(root, 'src', 'a'), { recursive: true });
@@ -398,13 +397,18 @@ describe('compute-batches.mjs — neighborMap + batchImportData', () => {
     const out = readBatches(root);
 
     // Expect 2 communities (cluster A and cluster B). Verify that some batch's
-    // neighborMap entry references src/a/core.ts with its symbols.
+    // neighborMap entry references src/a/core.ts with its symbols and canonical IDs.
     let sawSymbols = false;
     for (const batch of out.batches) {
       for (const [, neighbors] of Object.entries(batch.neighborMap)) {
         for (const n of neighbors) {
           if (n.path === 'src/a/core.ts') {
             expect(n.symbols).toEqual(expect.arrayContaining(['findUser', 'User']));
+            expect(n.symbolNodeIds).toEqual({
+              findUser: 'function:src/a/core.ts:findUser',
+              User: 'class:src/a/core.ts:User',
+            });
+            expect(Object.keys(n.symbolNodeIds).sort()).toEqual(['User', 'findUser']);
             sawSymbols = true;
           }
         }
