@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discord Community
+    url: https://discord.gg/pydat66RY
+    about: Ask questions, share feedback, or discuss ideas with the community.
+  - name: 📖 Documentation
+    url: https://github.com/Lum1104/Understand-Anything/tree/main/docs
+    about: Check the docs before opening an issue — your question may already be answered.
