@@ -21,6 +21,7 @@ export const ja = {
     pressKeyboard: "? を押してキーボードショートカットを表示",
     path: "パス",
     theme: "テーマ",
+    language: "言語",
   },
   projectOverview: {
     nodes: "ノード",

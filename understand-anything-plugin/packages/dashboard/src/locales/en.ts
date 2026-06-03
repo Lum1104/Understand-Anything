@@ -21,6 +21,7 @@ export const en = {
     pressKeyboard: "Press ? for keyboard shortcuts",
     path: "Path",
     theme: "Theme",
+    language: "Language",
   },
   projectOverview: {
     nodes: "Nodes",

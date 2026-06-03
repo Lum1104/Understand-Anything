@@ -21,6 +21,7 @@ export const zhTW = {
     pressKeyboard: "按 ? 查看鍵盤快捷鍵",
     path: "路徑",
     theme: "主題",
+    language: "語言",
   },
   projectOverview: {
     nodes: "節點",

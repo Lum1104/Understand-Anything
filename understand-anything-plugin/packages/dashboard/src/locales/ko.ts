@@ -21,6 +21,7 @@ export const ko = {
     pressKeyboard: "? 키를 눌러 키보드 단축키 보기",
     path: "경로",
     theme: "테마",
+    language: "언어",
   },
   projectOverview: {
     nodes: "노드",

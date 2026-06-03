@@ -21,6 +21,7 @@ export const ru = {
     pressKeyboard: "Нажмите ? для горячих клавиш",
     path: "Путь",
     theme: "Тема",
+    language: "Язык",
   },
   projectOverview: {
     nodes: "Узлы",

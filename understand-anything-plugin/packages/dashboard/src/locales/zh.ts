@@ -21,6 +21,7 @@ export const zh = {
     pressKeyboard: "按 ? 查看键盘快捷键",
     path: "路径",
     theme: "主题",
+    language: "语言",
   },
   projectOverview: {
     nodes: "节点",
