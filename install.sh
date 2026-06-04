@@ -11,6 +11,7 @@
 # Curl-pipe usage:
 #   curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash
 #   curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash -s codex
+#   curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash -s forgecode
 #
 # Environment:
 #   UA_REPO_URL  Override clone URL (default: official GitHub repo)
@@ -23,14 +24,16 @@ REPO_DIR="${UA_DIR:-$HOME/.understand-anything/repo}"
 PLUGIN_LINK="$HOME/.understand-anything-plugin"
 
 # Platform table — id|skills-target-dir|style
-# style "per-skill": one symlink per skill into the target dir
-# style "folder":    one symlink for the whole skills/ dir into the target,
-#                    named "understand-anything"
+# style "per-skill":       one symlink per skill into the target dir
+# style "copy-per-skill":  one physical copy per skill into the target dir (used when symlinked directories are not discoverable)
+# style "folder":          one symlink for the whole skills/ dir into the target,
+#                          named "understand-anything"
 platforms_table() {
   cat <<EOF
 gemini|$HOME/.agents/skills|per-skill
 codex|$HOME/.agents/skills|per-skill
 opencode|$HOME/.agents/skills|per-skill
+forgecode|AUTO|copy-per-skill
 pi|$HOME/.agents/skills|per-skill
 openclaw|$HOME/.openclaw/skills|folder
 antigravity|$HOME/.gemini/antigravity/skills|folder
@@ -55,6 +58,38 @@ resolve_platform() {
     exit 1
   fi
   printf '%s\n' "$row"
+}
+
+forgecode_base_dir() {
+  # ForgeCode base-path resolution:
+  # 1) $FORGE_CONFIG when set
+  # 2) ~/forge (default on macOS/Linux)
+  # 3) ~/.forge (fallback for older installs)
+  if [[ -n "${FORGE_CONFIG:-}" ]]; then
+    printf '%s\n' "$FORGE_CONFIG"
+  elif [[ -d "$HOME/forge" ]]; then
+    printf '%s\n' "$HOME/forge"
+  elif [[ -d "$HOME/.forge" ]]; then
+    printf '%s\n' "$HOME/.forge"
+  else
+    # Prefer ForgeCode's documented default.
+    printf '%s\n' "$HOME/forge"
+  fi
+}
+
+resolve_target_dir() {
+  local id="$1" target="$2"
+
+  case "$id" in
+    forgecode)
+      local base
+      base="$(forgecode_base_dir)"
+      printf '%s\n' "$base/skills"
+      ;;
+    *)
+      printf '%s\n' "$target"
+      ;;
+  esac
 }
 
 prompt_platform() {
@@ -100,6 +135,8 @@ clone_or_update() {
 }
 
 skills_root() { printf '%s\n' "$REPO_DIR/understand-anything-plugin/skills"; }
+commands_root() { printf '%s\n' "$REPO_DIR/understand-anything-plugin/commands"; }
+forgecode_agents_root() { printf '%s\n' "$REPO_DIR/understand-anything-plugin/forgecode/agents"; }
 
 list_skills() {
   local root
@@ -112,6 +149,47 @@ list_skills() {
   for d in "$root"/*/; do
     [[ -d "$d" ]] || continue
     basename "$d"
+  done
+}
+
+list_commands() {
+  local root
+  root="$(commands_root)"
+  if [[ ! -d "$root" ]]; then
+    printf 'Commands directory not found: %s\n' "$root" >&2
+    exit 1
+  fi
+
+  local files=("$root"/*.md)
+  if (( ${#files[@]} == 1 )) && [[ "${files[0]}" == "$root/*.md" ]]; then
+    # When nullglob is off and there are no matches, bash keeps the literal.
+    files=()
+  fi
+
+  local f
+  for f in "${files[@]}"; do
+    [[ -f "$f" ]] || continue
+    basename "$f"
+  done
+}
+
+list_forgecode_agents() {
+  local root
+  root="$(forgecode_agents_root)"
+  if [[ ! -d "$root" ]]; then
+    printf 'ForgeCode agents directory not found: %s\n' "$root" >&2
+    exit 1
+  fi
+
+  local files=("$root"/*.md)
+  if (( ${#files[@]} == 1 )) && [[ "${files[0]}" == "$root/*.md" ]]; then
+    files=()
+  fi
+
+  local f
+  for f in "${files[@]}"; do
+    [[ -f "$f" ]] || continue
+    basename "$f"
   done
 }
 
@@ -128,6 +206,14 @@ link_skills() {
         printf '  ✓ %s → %s\n' "$target/$skill" "$root/$skill"
       done < <(list_skills)
       ;;
+    copy-per-skill)
+      local skill
+      while IFS= read -r skill; do
+        rm -rf "$target/$skill"
+        cp -R "$root/$skill" "$target/$skill"
+        printf '  ✓ %s ← %s\n' "$target/$skill" "$root/$skill"
+      done < <(list_skills)
+      ;;
     folder)
       ln -sfn "$root" "$target/understand-anything"
       printf '  ✓ %s → %s\n' "$target/understand-anything" "$root"
@@ -141,6 +227,8 @@ link_skills() {
 
 unlink_skills() {
   local target="$1" style="$2"
+  local root
+  root="$(skills_root)"
   [[ -d "$target" ]] || return 0
   case "$style" in
     per-skill)
@@ -161,6 +249,22 @@ unlink_skills() {
         done
       fi
       ;;
+    copy-per-skill)
+      if [[ -d "$(skills_root)" ]]; then
+        local skill
+        while IFS= read -r skill; do
+          if [[ -d "$target/$skill" ]]; then
+            if [[ -f "$target/$skill/SKILL.md" ]] && cmp -s "$target/$skill/SKILL.md" "$root/$skill/SKILL.md"; then
+              rm -rf "$target/$skill"
+            else
+              printf '  • Refusing to remove %s (SKILL.md differs from current checkout)\n' "$target/$skill" >&2
+            fi
+          fi
+        done < <(list_skills)
+      else
+        printf '  • Skills checkout not found; remove copied skill directories manually under: %s\n' "$target" >&2
+      fi
+      ;;
     folder)
       [[ -L "$target/understand-anything" ]] && rm -f "$target/understand-anything"
       ;;
@@ -176,16 +280,113 @@ link_plugin_root() {
   fi
 }
 
+install_forgecode_commands() {
+  local base target root
+  base="$(forgecode_base_dir)"
+  target="$base/commands"
+  root="$(commands_root)"
+
+  if [[ ! -d "$root" ]]; then
+    printf 'Commands directory not found: %s\n' "$root" >&2
+    exit 1
+  fi
+
+  mkdir -p "$target"
+
+  local cmd
+  while IFS= read -r cmd; do
+    cp -f "$root/$cmd" "$target/$cmd"
+    printf '  ✓ %s ← %s\n' "$target/$cmd" "$root/$cmd"
+  done < <(list_commands)
+}
+
+uninstall_forgecode_commands() {
+  local base target root
+  base="$(forgecode_base_dir)"
+  target="$base/commands"
+  root="$(commands_root)"
+
+  [[ -d "$target" ]] || return 0
+  if [[ ! -d "$root" ]]; then
+    printf '  • Commands checkout not found; remove copied command files manually under: %s\n' "$target" >&2
+    return 0
+  fi
+
+  local cmd
+  while IFS= read -r cmd; do
+    if [[ -f "$target/$cmd" ]]; then
+      if cmp -s "$target/$cmd" "$root/$cmd"; then
+        rm -f "$target/$cmd"
+      else
+        printf '  • Refusing to remove %s (differs from current checkout)\n' "$target/$cmd" >&2
+      fi
+    fi
+  done < <(list_commands)
+}
+
+install_forgecode_agents() {
+  local base target root
+  base="$(forgecode_base_dir)"
+  target="$base/agents"
+  root="$(forgecode_agents_root)"
+
+  if [[ ! -d "$root" ]]; then
+    printf 'ForgeCode agents directory not found: %s\n' "$root" >&2
+    exit 1
+  fi
+
+  mkdir -p "$target"
+
+  local agent
+  while IFS= read -r agent; do
+    cp -f "$root/$agent" "$target/$agent"
+    printf '  ✓ %s ← %s\n' "$target/$agent" "$root/$agent"
+  done < <(list_forgecode_agents)
+}
+
+uninstall_forgecode_agents() {
+  local base target root
+  base="$(forgecode_base_dir)"
+  target="$base/agents"
+  root="$(forgecode_agents_root)"
+
+  [[ -d "$target" ]] || return 0
+  if [[ ! -d "$root" ]]; then
+    printf '  • Agents checkout not found; remove copied agent files manually under: %s\n' "$target" >&2
+    return 0
+  fi
+
+  local agent
+  while IFS= read -r agent; do
+    if [[ -f "$target/$agent" ]]; then
+      if cmp -s "$target/$agent" "$root/$agent"; then
+        rm -f "$target/$agent"
+      else
+        printf '  • Refusing to remove %s (differs from current checkout)\n' "$target/$agent" >&2
+      fi
+    fi
+  done < <(list_forgecode_agents)
+}
+
 cmd_install() {
   local id="$1"
   local row target style
   row="$(resolve_platform "$id")"
   target="$(printf '%s\n' "$row" | cut -d'|' -f2)"
   style="$(printf '%s\n' "$row" | cut -d'|' -f3)"
+  target="$(resolve_target_dir "$id" "$target")"
 
   clone_or_update
   printf -- '→ Linking skills for %s (%s → %s)\n' "$id" "$style" "$target"
   link_skills "$target" "$style"
+
+  if [[ "$id" == "forgecode" ]]; then
+    printf -- '→ Installing ForgeCode commands\n'
+    install_forgecode_commands
+    printf -- '→ Installing ForgeCode agents\n'
+    install_forgecode_agents
+  fi
+
   printf -- '→ Linking universal plugin root\n'
   link_plugin_root
 
@@ -203,9 +404,17 @@ cmd_uninstall() {
   row="$(resolve_platform "$id")"
   target="$(printf '%s\n' "$row" | cut -d'|' -f2)"
   style="$(printf '%s\n' "$row" | cut -d'|' -f3)"
+  target="$(resolve_target_dir "$id" "$target")"
 
   printf -- '→ Removing skill links for %s\n' "$id"
   unlink_skills "$target" "$style"
+
+  if [[ "$id" == "forgecode" ]]; then
+    printf -- '→ Removing ForgeCode command files\n'
+    uninstall_forgecode_commands
+    printf -- '→ Removing ForgeCode agent files\n'
+    uninstall_forgecode_agents
+  fi
   if [[ -L "$PLUGIN_LINK" ]]; then
     rm -f "$PLUGIN_LINK"
     printf '  ✓ removed %s\n' "$PLUGIN_LINK"
