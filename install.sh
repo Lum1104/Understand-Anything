@@ -20,6 +20,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
 REPO_URL="${UA_REPO_URL:-https://github.com/Lum1104/Understand-Anything.git}"
 REPO_REF="${UA_REPO_REF:-}"
 REPO_DIR="${UA_DIR:-$HOME/.understand-anything/repo}"
@@ -65,10 +67,13 @@ resolve_platform() {
 forgecode_base_dir() {
   # ForgeCode base-path resolution:
   # 1) $FORGE_CONFIG when set
-  # 2) ~/forge (default on macOS/Linux)
-  # 3) ~/.forge (fallback for older installs)
+  # 2) $FORGE_HOME when set
+  # 3) ~/forge (default on macOS/Linux)
+  # 4) ~/.forge (fallback for older installs)
   if [[ -n "${FORGE_CONFIG:-}" ]]; then
     printf '%s\n' "$FORGE_CONFIG"
+  elif [[ -n "${FORGE_HOME:-}" ]]; then
+    printf '%s\n' "$FORGE_HOME"
   elif [[ -d "$HOME/forge" ]]; then
     printf '%s\n' "$HOME/forge"
   elif [[ -d "$HOME/.forge" ]]; then
@@ -211,6 +216,21 @@ list_forgecode_agents() {
   done
 }
 
+list_md_files_in_dir() {
+  local root="$1"
+
+  local files=("$root"/*.md)
+  if (( ${#files[@]} == 1 )) && [[ "${files[0]}" == "$root/*.md" ]]; then
+    files=()
+  fi
+
+  local f
+  for f in "${files[@]}"; do
+    [[ -f "$f" ]] || continue
+    basename "$f"
+  done
+}
+
 link_skills() {
   local target="$1" style="$2"
   local root
@@ -305,9 +325,14 @@ install_forgecode_commands() {
   root="$(commands_root)"
 
   if [[ ! -d "$root" ]]; then
-    printf '  • ForgeCode commands not found in checkout: %s\n' "$root" >&2
-    printf '    (If you are testing a fork/branch, set UA_REPO_URL and optionally UA_REPO_REF.)\n' >&2
-    return 0
+    local local_root
+    local_root="$SCRIPT_DIR/understand-anything-plugin/commands"
+    if [[ -d "$local_root" ]]; then
+      root="$local_root"
+    else
+      printf '  • ForgeCode commands not found in checkout: %s\n' "$root" >&2
+      return 0
+    fi
   fi
 
   mkdir -p "$target"
@@ -316,7 +341,7 @@ install_forgecode_commands() {
   while IFS= read -r cmd; do
     cp -f "$root/$cmd" "$target/$cmd"
     printf '  ✓ %s ← %s\n' "$target/$cmd" "$root/$cmd"
-  done < <(list_commands)
+  done < <(list_md_files_in_dir "$root")
 }
 
 uninstall_forgecode_commands() {
@@ -327,8 +352,14 @@ uninstall_forgecode_commands() {
 
   [[ -d "$target" ]] || return 0
   if [[ ! -d "$root" ]]; then
-    printf '  • Commands checkout not found; remove copied command files manually under: %s\n' "$target" >&2
-    return 0
+    local local_root
+    local_root="$SCRIPT_DIR/understand-anything-plugin/commands"
+    if [[ -d "$local_root" ]]; then
+      root="$local_root"
+    else
+      printf '  • Commands checkout not found; remove copied command files manually under: %s\n' "$target" >&2
+      return 0
+    fi
   fi
 
   local cmd
@@ -340,7 +371,7 @@ uninstall_forgecode_commands() {
         printf '  • Refusing to remove %s (differs from current checkout)\n' "$target/$cmd" >&2
       fi
     fi
-  done < <(list_commands)
+  done < <(list_md_files_in_dir "$root")
 }
 
 install_forgecode_agents() {
@@ -350,9 +381,14 @@ install_forgecode_agents() {
   root="$(forgecode_agents_root)"
 
   if [[ ! -d "$root" ]]; then
-    printf '  • ForgeCode agents not found in checkout: %s\n' "$root" >&2
-    printf '    (If you are testing a fork/branch, set UA_REPO_URL and optionally UA_REPO_REF.)\n' >&2
-    return 0
+    local local_root
+    local_root="$SCRIPT_DIR/understand-anything-plugin/forgecode/agents"
+    if [[ -d "$local_root" ]]; then
+      root="$local_root"
+    else
+      printf '  • ForgeCode agents not found in checkout: %s\n' "$root" >&2
+      return 0
+    fi
   fi
 
   mkdir -p "$target"
@@ -361,7 +397,7 @@ install_forgecode_agents() {
   while IFS= read -r agent; do
     cp -f "$root/$agent" "$target/$agent"
     printf '  ✓ %s ← %s\n' "$target/$agent" "$root/$agent"
-  done < <(list_forgecode_agents)
+  done < <(list_md_files_in_dir "$root")
 }
 
 uninstall_forgecode_agents() {
@@ -372,8 +408,14 @@ uninstall_forgecode_agents() {
 
   [[ -d "$target" ]] || return 0
   if [[ ! -d "$root" ]]; then
-    printf '  • Agents checkout not found; remove copied agent files manually under: %s\n' "$target" >&2
-    return 0
+    local local_root
+    local_root="$SCRIPT_DIR/understand-anything-plugin/forgecode/agents"
+    if [[ -d "$local_root" ]]; then
+      root="$local_root"
+    else
+      printf '  • Agents checkout not found; remove copied agent files manually under: %s\n' "$target" >&2
+      return 0
+    fi
   fi
 
   local agent
@@ -385,7 +427,7 @@ uninstall_forgecode_agents() {
         printf '  • Refusing to remove %s (differs from current checkout)\n' "$target/$agent" >&2
       fi
     fi
-  done < <(list_forgecode_agents)
+  done < <(list_md_files_in_dir "$root")
 }
 
 cmd_install() {

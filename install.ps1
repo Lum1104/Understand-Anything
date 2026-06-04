@@ -74,9 +74,11 @@ function Resolve-Platform([string]$Id) {
 function Get-ForgeCodeBaseDir {
     # ForgeCode base-path resolution:
     # 1) $env:FORGE_CONFIG when set
-    # 2) ~/forge (default)
-    # 3) ~/.forge (fallback for older installs)
+    # 2) $env:FORGE_HOME when set
+    # 3) ~/forge (default)
+    # 4) ~/.forge (fallback for older installs)
     if ($env:FORGE_CONFIG) { return $env:FORGE_CONFIG }
+    if ($env:FORGE_HOME) { return $env:FORGE_HOME }
 
     $default = Join-Path $HOME 'forge'
     if (Test-Path $default) { return $default }
@@ -200,13 +202,17 @@ function Install-ForgeCodeCommands {
     $root = Get-CommandsRoot
 
     if (-not (Test-Path $root)) {
-        Write-Warning "ForgeCode commands not found in checkout: $root"
-        Write-Warning 'If you are testing a fork/branch, set UA_REPO_URL and optionally UA_REPO_REF.'
-        return
+        $localRoot = Join-Path $PSScriptRoot 'understand-anything-plugin\commands'
+        if (Test-Path $localRoot) {
+            $root = $localRoot
+        } else {
+            Write-Warning "ForgeCode commands not found in checkout: $root"
+            return
+        }
     }
     if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target | Out-Null }
 
-    foreach ($cmd in Get-CommandFiles) {
+    foreach ($cmd in (Get-ChildItem -Path $root -File -Filter '*.md' | Select-Object -ExpandProperty Name)) {
         $src = Join-Path $root $cmd
         $dest = Join-Path $target $cmd
         Copy-Item -LiteralPath $src -Destination $dest -Force
@@ -221,11 +227,16 @@ function Uninstall-ForgeCodeCommands {
 
     if (-not (Test-Path $target)) { return }
     if (-not (Test-Path $root)) {
-        Write-Warning "Commands checkout not found; remove copied command files manually under: $target"
-        return
+        $localRoot = Join-Path $PSScriptRoot 'understand-anything-plugin\commands'
+        if (Test-Path $localRoot) {
+            $root = $localRoot
+        } else {
+            Write-Warning "Commands checkout not found; remove copied command files manually under: $target"
+            return
+        }
     }
 
-    foreach ($cmd in Get-CommandFiles) {
+    foreach ($cmd in (Get-ChildItem -Path $root -File -Filter '*.md' | Select-Object -ExpandProperty Name)) {
         $src = Join-Path $root $cmd
         $dest = Join-Path $target $cmd
         if (Test-Path $dest) {
@@ -244,13 +255,17 @@ function Install-ForgeCodeAgents {
     $root = Get-ForgeCodeAgentsRoot
 
     if (-not (Test-Path $root)) {
-        Write-Warning "ForgeCode agents not found in checkout: $root"
-        Write-Warning 'If you are testing a fork/branch, set UA_REPO_URL and optionally UA_REPO_REF.'
-        return
+        $localRoot = Join-Path $PSScriptRoot 'understand-anything-plugin\forgecode\agents'
+        if (Test-Path $localRoot) {
+            $root = $localRoot
+        } else {
+            Write-Warning "ForgeCode agents not found in checkout: $root"
+            return
+        }
     }
     if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target | Out-Null }
 
-    foreach ($agent in Get-ForgeCodeAgentFiles) {
+    foreach ($agent in (Get-ChildItem -Path $root -File -Filter '*.md' | Select-Object -ExpandProperty Name)) {
         $src = Join-Path $root $agent
         $dest = Join-Path $target $agent
         Copy-Item -LiteralPath $src -Destination $dest -Force
@@ -265,11 +280,16 @@ function Uninstall-ForgeCodeAgents {
 
     if (-not (Test-Path $target)) { return }
     if (-not (Test-Path $root)) {
-        Write-Warning "Agents checkout not found; remove copied agent files manually under: $target"
-        return
+        $localRoot = Join-Path $PSScriptRoot 'understand-anything-plugin\forgecode\agents'
+        if (Test-Path $localRoot) {
+            $root = $localRoot
+        } else {
+            Write-Warning "Agents checkout not found; remove copied agent files manually under: $target"
+            return
+        }
     }
 
-    foreach ($agent in Get-ForgeCodeAgentFiles) {
+    foreach ($agent in (Get-ChildItem -Path $root -File -Filter '*.md' | Select-Object -ExpandProperty Name)) {
         $src = Join-Path $root $agent
         $dest = Join-Path $target $agent
         if (Test-Path $dest) {
