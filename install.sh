@@ -33,7 +33,6 @@ platforms_table() {
 gemini|$HOME/.agents/skills|per-skill
 codex|$HOME/.agents/skills|per-skill
 opencode|$HOME/.agents/skills|per-skill
-forgecode|AUTO|copy-per-skill
 pi|$HOME/.agents/skills|per-skill
 openclaw|$HOME/.openclaw/skills|folder
 antigravity|$HOME/.gemini/antigravity/skills|folder
@@ -43,6 +42,7 @@ hermes|$HOME/.hermes/skills|folder
 cline|$HOME/.cline/skills|folder
 kimi|$HOME/.kimi/skills|folder
 trae|$HOME/.trae/skills|per-skill
+forgecode|AUTO|copy-per-skill
 EOF
 }
 
