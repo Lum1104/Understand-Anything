@@ -460,6 +460,8 @@ cmd_install() {
   printf '\n✓ Installed Understand-Anything for %s\n' "$id"
   if [[ "$id" == "forgecode" ]]; then
     printf '  Restart ForgeCode to pick up commands and agents.\n'
+    printf '  Note: ForgeCode files are physical copies, not symlinks.\n'
+    printf '  Run  ./install.sh --update  after upstream changes to refresh them.\n'
   else
     printf '  Restart your CLI or IDE to pick up the skills.\n'
   fi
@@ -507,6 +509,19 @@ cmd_update() {
   fi
   git -C "$REPO_DIR" pull --ff-only
   printf '✓ Updated.\n'
+
+  # Symlinked platforms pick up the new content automatically because their
+  # installed files are symlinks into REPO_DIR.  ForgeCode uses physical copies
+  # (copy-per-skill) so a git pull alone leaves stale files on disk.
+  # Re-copy commands and agents whenever a ForgeCode install is detected.
+  local base
+  base="$(forgecode_base_dir)"
+  if [[ -d "$base/commands" || -d "$base/agents" ]]; then
+    printf -- '→ Refreshing ForgeCode copies (copy-per-skill)\n'
+    install_forgecode_commands
+    install_forgecode_agents
+    printf '  Restart ForgeCode to pick up the updated commands and agents.\n'
+  fi
 }
 
 usage() {
@@ -515,7 +530,8 @@ Understand-Anything installer
 
 Usage:
   install.sh [<platform>]            Install for <platform> (or prompt if omitted)
-  install.sh --update                Pull latest changes (skills update through symlinks)
+  install.sh --update                Pull latest changes (symlinked platforms update
+                                   automatically; ForgeCode copies are also re-installed)
   install.sh --uninstall <platform>  Remove links for <platform>
   install.sh --help
 
