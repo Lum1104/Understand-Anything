@@ -12,6 +12,7 @@ import { kotlinConfig } from "./kotlin.js";
 import { cConfig } from "./c.js";
 import { cppConfig } from "./cpp.js";
 import { csharpConfig } from "./csharp.js";
+import { objectiveCConfig } from "./objectivec.js";
 import { luaConfig } from "./lua.js";
 // Non-code language configs
 import { markdownConfig } from "./markdown.js";
@@ -57,6 +58,7 @@ export const builtinLanguageConfigs: LanguageConfig[] = [
   cConfig,
   cppConfig,
   csharpConfig,
+  objectiveCConfig,
   // Non-code languages
   markdownConfig,
   yamlConfig,
@@ -102,6 +104,7 @@ export {
   cConfig,
   cppConfig,
   csharpConfig,
+  objectiveCConfig,
   // Non-code languages
   markdownConfig,
   yamlConfig,
