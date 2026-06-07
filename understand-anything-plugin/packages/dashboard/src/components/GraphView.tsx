@@ -334,7 +334,13 @@ function useOverviewGraph() {
     let childOptions: Map<string, Record<string, string>> | undefined;
     if (tiers.size > 0) {
       const maxTier = Math.max(...Array.from(tiers.values()));
-      layoutOverride = { "elk.partitioning.activate": "true" };
+      layoutOverride = {
+        "elk.partitioning.activate": "true",
+        // Post-compaction moves nodes across layer boundaries and silently
+        // violates partitions (a tier-2 node ends up in the top row) —
+        // disable it whenever partitioning is active.
+        "elk.layered.compaction.postCompaction.strategy": "NONE",
+      };
       childOptions = new Map(
         baseNodes.map((n) => [
           n.id,
