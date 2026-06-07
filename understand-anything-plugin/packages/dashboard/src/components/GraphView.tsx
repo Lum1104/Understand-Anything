@@ -289,17 +289,35 @@ function useOverviewGraph() {
 
     // Aggregate edges between layers
     const aggregated = aggregateLayerEdges(graph);
-    const flowEdges: Edge[] = aggregated.map((agg, i) => ({
-      id: `le-${i}`,
-      source: agg.sourceLayerId,
-      target: agg.targetLayerId,
-      label: `${agg.count}`,
+    // With pinned tiers, edges flowing AGAINST the vertical order (lower
+    // tier → higher tier) would leave the lower card's bottom handle, loop
+    // around and enter the upper card's top handle. The overview shows no
+    // arrowheads, so flip such edges visually: exit the upper card's
+    // bottom, enter the lower card's top.
+    const tierOf = new Map<string, number>();
+    for (const layer of graph.layers) {
+      if (typeof layer.tier === "number") tierOf.set(layer.id, layer.tier);
+    }
+    const flowEdges: Edge[] = aggregated.map((agg, i) => {
+      let src = agg.sourceLayerId;
+      let tgt = agg.targetLayerId;
+      const ts = tierOf.get(src);
+      const tt = tierOf.get(tgt);
+      if (ts !== undefined && tt !== undefined && ts > tt) {
+        [src, tgt] = [tgt, src];
+      }
+      return {
+        id: `le-${i}`,
+        source: src,
+        target: tgt,
+        label: `${agg.count}`,
       style: {
         stroke: "rgba(212,165,116,0.4)",
         strokeWidth: Math.min(1 + Math.log2(agg.count + 1), 5),
       },
       labelStyle: { fill: "#a39787", fontSize: 11, fontWeight: 600 },
-    }));
+      };
+    });
 
     const dims = new Map<string, { width: number; height: number }>();
     for (const n of clusterNodes) {
