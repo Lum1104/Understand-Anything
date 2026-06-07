@@ -90,6 +90,23 @@ output: <OUTPUT_DIR>/.understand-anything/intermediate/analysis-results/analysis
         <OUTPUT_DIR>/.understand-anything/intermediate/analysis-results-manifest.json
 ```
 
+Then synthesize analysis results into a human report and graph overlay:
+
+```bash
+python3 <SKILL_DIR>/llm-adapters/synthesize-analysis-results.py \
+  <OUTPUT_DIR>/.understand-anything/intermediate/analysis-results-manifest.json \
+  --graph <OUTPUT_DIR>/.understand-anything/knowledge-graph.json \
+  --output-dir <OUTPUT_DIR>
+```
+
+Synthesis outputs:
+
+```text
+<OUTPUT_DIR>/book-analysis.md
+<OUTPUT_DIR>/.understand-anything/intermediate/analysis-synthesis.json
+<OUTPUT_DIR>/.understand-anything/knowledge-graph.enriched.json
+```
+
 Do not write API keys into repo files. Use environment variables only.
 
 ### Phase 4: Verify output
