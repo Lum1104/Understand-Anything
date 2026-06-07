@@ -82,6 +82,155 @@ def validate_graph(graph: dict[str, Any]) -> None:
         raise PipelineError(f"ERR_GRAPH_DANGLING_EDGES: {len(dangling)} dangling edges")
 
 
+def split_text_into_chunks(text: str, chunk_size: int) -> list[tuple[int, int, str]]:
+    if chunk_size < 1:
+        raise PipelineError("ERR_CHUNK_SIZE_INVALID: chunk size must be positive")
+    chunks: list[tuple[int, int, str]] = []
+    cursor = 0
+    while cursor < len(text):
+        end = min(cursor + chunk_size, len(text))
+        piece = text[cursor:end]
+        chunks.append((cursor, end, piece))
+        cursor = end
+    return chunks
+
+
+def write_chapter_chunks(output_dir: Path, manifest: dict[str, Any], chunk_size: int) -> Path:
+    intermediate_dir = output_dir / ".understand-anything" / "intermediate"
+    chunks_dir = intermediate_dir / "chunks"
+    chunks_dir.mkdir(parents=True, exist_ok=True)
+
+    book = manifest.get("book", {})
+    chunks: list[dict[str, Any]] = []
+    global_order = 1
+    for chapter in manifest.get("chapters", []):
+        chapter_id = chapter.get("id") or f"ch{global_order:02d}"
+        chapter_title = chapter.get("title") or chapter_id
+        text_path = Path(chapter.get("text_path", ""))
+        if not text_path.is_file():
+            raise PipelineError(f"ERR_CHAPTER_TEXT_NOT_FOUND: {text_path}")
+        text = text_path.read_text(encoding="utf-8")
+        for chunk_index, (char_start, char_end, piece) in enumerate(split_text_into_chunks(text, chunk_size), start=1):
+            chunk_id = f"{chapter_id}-c{chunk_index:03d}"
+            chunk_path = chunks_dir / f"{chunk_id}.md"
+            evidence_anchor = f"{chapter_id}:{char_start}-{char_end}"
+            chunk_path.write_text(
+                "\n".join(
+                    [
+                        f"# Chunk {chunk_id}",
+                        "",
+                        "## Metadata",
+                        "",
+                        f"- Book: {book.get('title') or '未知书名'}",
+                        f"- Chapter: {chapter_title}",
+                        f"- Chapter ID: `{chapter_id}`",
+                        f"- Order: {global_order}",
+                        f"- Char range: `{char_start}-{char_end}`",
+                        f"- Evidence anchor: `{evidence_anchor}`",
+                        "",
+                        "## Evidence",
+                        "",
+                        piece,
+                    ]
+                ).rstrip()
+                + "\n",
+                encoding="utf-8",
+            )
+            chunks.append(
+                {
+                    "id": chunk_id,
+                    "order": global_order,
+                    "chapter_id": chapter_id,
+                    "chapter_title": chapter_title,
+                    "chapter_order": chapter.get("order"),
+                    "char_start": char_start,
+                    "char_end": char_end,
+                    "char_count": len(piece),
+                    "path": str(chunk_path),
+                    "source_text_path": str(text_path),
+                    "evidence_anchor": evidence_anchor,
+                }
+            )
+            global_order += 1
+
+    chunk_manifest = {
+        "version": 1,
+        "chunk_size": chunk_size,
+        "book": book,
+        "chunks": chunks,
+    }
+    manifest_path = intermediate_dir / "chunks-manifest.json"
+    manifest_path.write_text(json.dumps(chunk_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return manifest_path
+
+
+def write_analysis_batches(output_dir: Path, chunks_manifest_path: Path, language: str, batch_size: int) -> Path:
+    if batch_size < 1:
+        raise PipelineError("ERR_BATCH_SIZE_INVALID: batch size must be positive")
+    intermediate_dir = output_dir / ".understand-anything" / "intermediate"
+    batches_dir = intermediate_dir / "analysis-batches"
+    batches_dir.mkdir(parents=True, exist_ok=True)
+
+    chunks_manifest = json.loads(chunks_manifest_path.read_text(encoding="utf-8"))
+    chunks = chunks_manifest.get("chunks", [])
+    book = chunks_manifest.get("book", {})
+    batch_records: list[dict[str, Any]] = []
+
+    for batch_index, start in enumerate(range(0, len(chunks), batch_size), start=1):
+        selected = chunks[start : start + batch_size]
+        batch_id = f"analysis-batch-{batch_index:03d}"
+        batch_path = batches_dir / f"{batch_id}.json"
+        payload_chunks: list[dict[str, Any]] = []
+        for chunk in selected:
+            chunk_path = Path(chunk.get("path", ""))
+            if not chunk_path.is_file():
+                raise PipelineError(f"ERR_CHUNK_NOT_FOUND: {chunk_path}")
+            payload_chunks.append(
+                {
+                    "id": chunk.get("id"),
+                    "order": chunk.get("order"),
+                    "chapter_id": chunk.get("chapter_id"),
+                    "chapter_title": chunk.get("chapter_title"),
+                    "char_start": chunk.get("char_start"),
+                    "char_end": chunk.get("char_end"),
+                    "evidence_anchor": chunk.get("evidence_anchor"),
+                    "evidence": chunk_path.read_text(encoding="utf-8"),
+                }
+            )
+        payload = {
+            "version": 1,
+            "kind": "understand-book-analysis-batch",
+            "task": "chapter_analysis",
+            "language": language or book.get("language") or "zh",
+            "book": book,
+            "instructions": [
+                "基于 evidence 原文做章节理解，不要编造未出现的信息。",
+                "输出应保留 chunk id 和 evidence_anchor，方便回链校验。",
+                "后续结果文件应写入 analysis-results/analysis-batch-XXX.result.json。",
+            ],
+            "chunks": payload_chunks,
+        }
+        batch_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        batch_records.append(
+            {
+                "id": batch_id,
+                "path": str(batch_path),
+                "chunk_count": len(payload_chunks),
+                "chunk_ids": [chunk.get("id") for chunk in selected],
+            }
+        )
+
+    manifest = {
+        "version": 1,
+        "batch_size": batch_size,
+        "book": book,
+        "batches": batch_records,
+    }
+    manifest_path = intermediate_dir / "analysis-batches-manifest.json"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return manifest_path
+
+
 def write_book_report(output_dir: Path, manifest: dict[str, Any], graph: dict[str, Any]) -> Path:
     book = manifest.get("book", {})
     title = book.get("title") or "未知书名"
@@ -131,6 +280,8 @@ def write_book_report(output_dir: Path, manifest: dict[str, Any], graph: dict[st
             "## 输出文件",
             "",
             "- `wiki/index.md`：书籍 wiki 入口",
+            "- `.understand-anything/intermediate/chunks-manifest.json`：稳定分块清单",
+            "- `.understand-anything/intermediate/analysis-batches/`：LLM-ready 分析输入，不包含模型调用",
             "- `.understand-anything/knowledge-graph.json`：dashboard 图谱",
             "- `.understand-anything/intermediate/book-manifest.json`：EPUB 解析清单",
         ]
@@ -178,33 +329,43 @@ def write_root_outputs(output_dir: Path, manifest: dict[str, Any]) -> tuple[Path
     return root_graph_path, meta_path, report_path
 
 
-def run_pipeline(input_path: Path, output_dir: Path, language: str) -> dict[str, Any]:
+def run_pipeline(input_path: Path, output_dir: Path, language: str, chunk_size: int, batch_size: int) -> dict[str, Any]:
     epub_module = _load_epub_module()
 
     print(f"[understand-book] input: {input_path}")
     print(f"[understand-book] output: {output_dir}")
-    print("[1/4] Convert EPUB to wiki scaffold...")
+    print("[1/6] Convert EPUB to wiki scaffold...")
     manifest = epub_module.ingest_epub(input_path.resolve(), output_dir.resolve(), language)
     print(
-        f"[1/4] Manifest ready: {len(manifest['chapters'])} chapters, "
+        f"[1/6] Manifest ready: {len(manifest['chapters'])} chapters, "
         f"{len(manifest.get('assets', []))} assets"
     )
 
+    print("[2/6] Write deterministic chapter chunks...")
+    chunks_manifest_path = write_chapter_chunks(output_dir, manifest, chunk_size)
+    print(f"[2/6] Chunks: {chunks_manifest_path}")
+
+    print("[3/6] Write LLM-ready analysis batches...")
+    batches_manifest_path = write_analysis_batches(output_dir, chunks_manifest_path, language, batch_size)
+    print(f"[3/6] Analysis batches: {batches_manifest_path}")
+
     wiki_dir = output_dir / "wiki"
-    print("[2/4] Parse wiki scaffold...")
+    print("[4/6] Parse wiki scaffold...")
     run_command([sys.executable, str(_PARSE_KNOWLEDGE), str(wiki_dir)], cwd=output_dir)
 
-    print("[3/4] Merge knowledge graph...")
+    print("[5/6] Merge knowledge graph...")
     run_command([sys.executable, str(_MERGE_KNOWLEDGE), str(wiki_dir)], cwd=output_dir)
 
-    print("[4/4] Save root graph and metadata...")
+    print("[6/6] Save root graph and metadata...")
     graph_path, meta_path, report_path = write_root_outputs(output_dir, manifest)
-    print(f"[4/4] Graph: {graph_path}")
-    print(f"[4/4] Meta: {meta_path}")
-    print(f"[4/4] Report: {report_path}")
+    print(f"[6/6] Graph: {graph_path}")
+    print(f"[6/6] Meta: {meta_path}")
+    print(f"[6/6] Report: {report_path}")
     print("Done.")
     return {
         "manifest": manifest,
+        "chunksManifestPath": str(chunks_manifest_path),
+        "analysisBatchesManifestPath": str(batches_manifest_path),
         "graphPath": str(graph_path),
         "metaPath": str(meta_path),
         "reportPath": str(report_path),
@@ -216,13 +377,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("input", help="Path to .epub file")
     parser.add_argument("--output", default=".understand-book", help="Output directory")
     parser.add_argument("--language", default="", help="Output language override")
+    parser.add_argument("--chunk-size", type=int, default=6000, help="Maximum characters per deterministic analysis chunk")
+    parser.add_argument("--batch-size", type=int, default=8, help="Maximum chunks per LLM-ready analysis batch")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
     try:
-        run_pipeline(Path(args.input), Path(args.output), args.language)
+        run_pipeline(Path(args.input), Path(args.output), args.language, args.chunk_size, args.batch_size)
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1

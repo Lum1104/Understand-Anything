@@ -1,7 +1,7 @@
 ---
 name: understand-book
-description: Convert an EPUB book into a chapter-aware wiki scaffold and root knowledge graph for the dashboard.
-argument-hint: [book.epub] [--language <lang>] [--output <dir>]
+description: Convert an EPUB book into a chapter-aware wiki scaffold, LLM-ready analysis batches, and root knowledge graph for the dashboard.
+argument-hint: [book.epub] [--language <lang>] [--output <dir>] [--chunk-size <chars>] [--batch-size <chunks>]
 ---
 
 # /understand-book
@@ -16,6 +16,8 @@ Analyze an EPUB book by converting it into a deterministic Karpathy-style wiki, 
    - First non-flag token: EPUB input path.
    - `--language <lang>`: optional output language, defaults to EPUB metadata or `unknown`.
    - `--output <dir>`: optional output directory, defaults to `.understand-book`.
+   - `--chunk-size <chars>`: optional max characters per deterministic chunk, defaults to `6000`.
+   - `--batch-size <chunks>`: optional max chunks per analysis batch, defaults to `8`.
 2. If no EPUB path is provided, ask the user for one.
 3. Resolve relative paths against the current working directory.
 4. Verify the input exists and ends with `.epub`.
@@ -25,7 +27,7 @@ Analyze an EPUB book by converting it into a deterministic Karpathy-style wiki, 
 Run the bundled pipeline script:
 
 ```bash
-python3 <SKILL_DIR>/run-understand-book.py <EPUB_PATH> --output <OUTPUT_DIR> --language <LANGUAGE>
+python3 <SKILL_DIR>/run-understand-book.py <EPUB_PATH> --output <OUTPUT_DIR> --language <LANGUAGE> --chunk-size 6000 --batch-size 8
 ```
 
 It performs:
@@ -33,6 +35,8 @@ It performs:
 ```text
 EPUB
   → wiki scaffold
+  → deterministic chunks
+  → LLM-ready analysis-batch JSON files
   → understand-knowledge parse
   → understand-knowledge merge
   → <OUTPUT_DIR>/.understand-anything/knowledge-graph.json
@@ -45,11 +49,13 @@ Expected progress output:
 ```text
 [understand-book] input: ...
 [understand-book] output: ...
-[1/4] Convert EPUB to wiki scaffold...
-[1/4] Manifest ready: N chapters, M assets
-[2/4] Parse wiki scaffold...
-[3/4] Merge knowledge graph...
-[4/4] Save root graph and metadata...
+[1/6] Convert EPUB to wiki scaffold...
+[1/6] Manifest ready: N chapters, M assets
+[2/6] Write deterministic chapter chunks...
+[3/6] Write LLM-ready analysis batches...
+[4/6] Parse wiki scaffold...
+[5/6] Merge knowledge graph...
+[6/6] Save root graph and metadata...
 Done.
 ```
 
@@ -62,6 +68,10 @@ Check these files exist:
 <OUTPUT_DIR>/wiki/index.md
 <OUTPUT_DIR>/wiki/chapters/ch01.md
 <OUTPUT_DIR>/.understand-anything/intermediate/book-manifest.json
+<OUTPUT_DIR>/.understand-anything/intermediate/chunks-manifest.json
+<OUTPUT_DIR>/.understand-anything/intermediate/chunks/ch01-c001.md
+<OUTPUT_DIR>/.understand-anything/intermediate/analysis-batches-manifest.json
+<OUTPUT_DIR>/.understand-anything/intermediate/analysis-batches/analysis-batch-001.json
 <OUTPUT_DIR>/.understand-anything/knowledge-graph.json
 <OUTPUT_DIR>/.understand-anything/meta.json
 <OUTPUT_DIR>/book-report.md
@@ -81,5 +91,5 @@ Run:
 
 - EPUB only. Do not accept PDF/DOCX/OCR yet.
 - The deterministic path uses Python stdlib only: zip, XML, HTML parsing, JSON, subprocess.
-- This first pipeline produces a structural book graph from chapters/categories. Rich LLM chapter analysis can be layered in later via `analysis-batch-*.json` or a dedicated analyzer.
-- Evidence comes from generated chapter markdown pages in EPUB spine order.
+- This pipeline produces a structural book graph plus deterministic LLM-ready `analysis-batches/*.json`. It still does not call an LLM.
+- Evidence comes from generated chapter text in EPUB spine order, then from stable chunk files with `evidence_anchor`.

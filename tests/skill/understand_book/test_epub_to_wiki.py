@@ -159,6 +159,108 @@ class EpubToWikiTests(unittest.TestCase):
             self.assertIn("第一章 开端", report)
             self.assertIn("第二章 回声", report)
 
+    def test_pipeline_writes_stable_chapter_chunks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            epub_path = tmp_path / "tiny.epub"
+            out_dir = tmp_path / "book-output"
+            _write_tiny_epub(epub_path)
+
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(_PIPELINE_SCRIPT),
+                    str(epub_path),
+                    "--output",
+                    str(out_dir),
+                    "--language",
+                    "zh",
+                    "--chunk-size",
+                    "14",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
+            chunk_manifest_path = out_dir / ".understand-anything" / "intermediate" / "chunks-manifest.json"
+            self.assertTrue(chunk_manifest_path.is_file())
+            chunk_manifest = json.loads(chunk_manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(chunk_manifest["version"], 1)
+            self.assertEqual(chunk_manifest["chunk_size"], 14)
+            self.assertEqual(chunk_manifest["book"]["title"], "Tiny Test Book")
+            self.assertGreaterEqual(len(chunk_manifest["chunks"]), 4)
+
+            first = chunk_manifest["chunks"][0]
+            self.assertEqual(first["id"], "ch01-c001")
+            self.assertEqual(first["chapter_id"], "ch01")
+            self.assertEqual(first["chapter_title"], "第一章 开端")
+            self.assertEqual(first["order"], 1)
+            self.assertEqual(first["char_start"], 0)
+            self.assertGreater(first["char_end"], first["char_start"])
+            self.assertIn("evidence_anchor", first)
+
+            first_chunk = Path(first["path"])
+            self.assertTrue(first_chunk.is_file())
+            chunk_text = first_chunk.read_text(encoding="utf-8")
+            self.assertIn("# Chunk ch01-c001", chunk_text)
+            self.assertIn("Book: Tiny Test Book", chunk_text)
+            self.assertIn("Chapter: 第一章 开端", chunk_text)
+            self.assertIn("## Evidence", chunk_text)
+
+    def test_pipeline_writes_analysis_batches_without_llm_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            epub_path = tmp_path / "tiny.epub"
+            out_dir = tmp_path / "book-output"
+            _write_tiny_epub(epub_path)
+
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(_PIPELINE_SCRIPT),
+                    str(epub_path),
+                    "--output",
+                    str(out_dir),
+                    "--language",
+                    "zh",
+                    "--chunk-size",
+                    "14",
+                    "--batch-size",
+                    "2",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
+            batches_dir = out_dir / ".understand-anything" / "intermediate" / "analysis-batches"
+            batch_manifest_path = out_dir / ".understand-anything" / "intermediate" / "analysis-batches-manifest.json"
+            self.assertTrue(batch_manifest_path.is_file())
+            batch_manifest = json.loads(batch_manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(batch_manifest["version"], 1)
+            self.assertEqual(batch_manifest["batch_size"], 2)
+            self.assertGreaterEqual(len(batch_manifest["batches"]), 2)
+
+            first_batch_path = batches_dir / "analysis-batch-001.json"
+            self.assertTrue(first_batch_path.is_file())
+            first_batch = json.loads(first_batch_path.read_text(encoding="utf-8"))
+            self.assertEqual(first_batch["kind"], "understand-book-analysis-batch")
+            self.assertEqual(first_batch["task"], "chapter_analysis")
+            self.assertEqual(first_batch["language"], "zh")
+            self.assertEqual(first_batch["book"]["title"], "Tiny Test Book")
+            self.assertEqual(len(first_batch["chunks"]), 2)
+            self.assertEqual(first_batch["chunks"][0]["id"], "ch01-c001")
+            self.assertIn("evidence", first_batch["chunks"][0])
+            self.assertNotIn("provider", first_batch)
+            self.assertNotIn("model", first_batch)
+
 
 if __name__ == "__main__":
     unittest.main()
