@@ -18,13 +18,9 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent.parent.parent
-_SCRIPT = (
-    _REPO_ROOT
-    / "understand-anything-plugin"
-    / "skills"
-    / "understand-book"
-    / "epub-to-wiki.py"
-)
+_SKILL_DIR = _REPO_ROOT / "understand-anything-plugin" / "skills" / "understand-book"
+_SCRIPT = _SKILL_DIR / "epub-to-wiki.py"
+_PIPELINE_SCRIPT = _SKILL_DIR / "run-understand-book.py"
 
 
 def _write_tiny_epub(path: Path) -> None:
@@ -120,6 +116,40 @@ class EpubToWikiTests(unittest.TestCase):
 
             raw_copy = out_dir / "raw" / "tiny.epub"
             self.assertTrue(raw_copy.is_file())
+
+    def test_pipeline_writes_root_knowledge_graph_and_meta(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            epub_path = tmp_path / "tiny.epub"
+            out_dir = tmp_path / "book-output"
+            _write_tiny_epub(epub_path)
+
+            result = subprocess.run(
+                ["python3", str(_PIPELINE_SCRIPT), str(epub_path), "--output", str(out_dir), "--language", "zh"],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
+            root_graph_path = out_dir / ".understand-anything" / "knowledge-graph.json"
+            self.assertTrue(root_graph_path.is_file())
+            graph = json.loads(root_graph_path.read_text(encoding="utf-8"))
+            self.assertEqual(graph["kind"], "knowledge")
+            self.assertGreaterEqual(len(graph["nodes"]), 4)
+            self.assertGreaterEqual(len(graph["edges"]), 2)
+
+            meta_path = out_dir / ".understand-anything" / "meta.json"
+            self.assertTrue(meta_path.is_file())
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            self.assertEqual(meta["sourceType"], "epub")
+            self.assertEqual(meta["analyzedFiles"], 2)
+            self.assertIn("book", meta)
+
+            wiki_graph_path = out_dir / "wiki" / ".understand-anything" / "knowledge-graph.json"
+            self.assertTrue(wiki_graph_path.is_file())
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 ---
 name: understand-book
-description: Convert an EPUB book into a chapter-aware wiki scaffold, then reuse /understand-knowledge and /understand-dashboard to generate an interactive book knowledge graph.
+description: Convert an EPUB book into a chapter-aware wiki scaffold and root knowledge graph for the dashboard.
 argument-hint: [book.epub] [--language <lang>] [--output <dir>]
 ---
 
 # /understand-book
 
-Analyze an EPUB book by first converting it into a deterministic Karpathy-style wiki scaffold.
+Analyze an EPUB book by converting it into a deterministic Karpathy-style wiki, reusing the existing knowledge graph parser/merger, and saving a dashboard-ready graph.
 
 ## Instructions
 
@@ -20,51 +20,56 @@ Analyze an EPUB book by first converting it into a deterministic Karpathy-style 
 3. Resolve relative paths against the current working directory.
 4. Verify the input exists and ends with `.epub`.
 
-### Phase 2: Convert EPUB to wiki scaffold
+### Phase 2: Run deterministic book pipeline
 
-Run the bundled deterministic converter:
-
-```bash
-python3 <SKILL_DIR>/epub-to-wiki.py <EPUB_PATH> --output <OUTPUT_DIR> --language <LANGUAGE>
-```
-
-This writes:
-
-```text
-<OUTPUT_DIR>/
-  raw/<book.epub>
-  wiki/index.md
-  wiki/chapters/ch01.md
-  wiki/chapters/ch02.md
-  .understand-anything/intermediate/book-manifest.json
-```
-
-Report:
-
-```text
-[understand-book] Manifest ready: N chapters, M assets
-```
-
-### Phase 3: Generate the knowledge graph
-
-Run `/understand-knowledge <OUTPUT_DIR>/wiki`.
-
-That command produces:
-
-```text
-<OUTPUT_DIR>/wiki/.understand-anything/knowledge-graph.json
-```
-
-### Phase 4: Save book-level outputs
-
-Copy the knowledge graph to the book output root for dashboard convenience:
+Run the bundled pipeline script:
 
 ```bash
-mkdir -p <OUTPUT_DIR>/.understand-anything
-cp <OUTPUT_DIR>/wiki/.understand-anything/knowledge-graph.json <OUTPUT_DIR>/.understand-anything/knowledge-graph.json
+python3 <SKILL_DIR>/run-understand-book.py <EPUB_PATH> --output <OUTPUT_DIR> --language <LANGUAGE>
 ```
 
-Then run:
+It performs:
+
+```text
+EPUB
+  → wiki scaffold
+  → understand-knowledge parse
+  → understand-knowledge merge
+  → <OUTPUT_DIR>/.understand-anything/knowledge-graph.json
+  → <OUTPUT_DIR>/.understand-anything/meta.json
+```
+
+Expected progress output:
+
+```text
+[understand-book] input: ...
+[understand-book] output: ...
+[1/4] Convert EPUB to wiki scaffold...
+[1/4] Manifest ready: N chapters, M assets
+[2/4] Parse wiki scaffold...
+[3/4] Merge knowledge graph...
+[4/4] Save root graph and metadata...
+Done.
+```
+
+### Phase 3: Verify output
+
+Check these files exist:
+
+```text
+<OUTPUT_DIR>/raw/<book.epub>
+<OUTPUT_DIR>/wiki/index.md
+<OUTPUT_DIR>/wiki/chapters/ch01.md
+<OUTPUT_DIR>/.understand-anything/intermediate/book-manifest.json
+<OUTPUT_DIR>/.understand-anything/knowledge-graph.json
+<OUTPUT_DIR>/.understand-anything/meta.json
+```
+
+If validation fails, report the exact `ERR_*` message from the script and stop.
+
+### Phase 4: Open dashboard
+
+Run:
 
 ```text
 /understand-dashboard <OUTPUT_DIR>
@@ -72,7 +77,7 @@ Then run:
 
 ## Notes
 
-- This first version is EPUB-only. Do not accept PDF/DOCX/OCR yet.
-- The converter is deterministic and uses Python stdlib only: zip, XML, and HTML parsing.
-- LLM analysis happens after conversion, through the existing `/understand-knowledge` path.
-- Evidence comes from chapter markdown pages generated from EPUB spine order.
+- EPUB only. Do not accept PDF/DOCX/OCR yet.
+- The deterministic path uses Python stdlib only: zip, XML, HTML parsing, JSON, subprocess.
+- This first pipeline produces a structural book graph from chapters/categories. Rich LLM chapter analysis can be layered in later via `analysis-batch-*.json` or a dedicated analyzer.
+- Evidence comes from generated chapter markdown pages in EPUB spine order.
