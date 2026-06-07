@@ -261,6 +261,120 @@ class EpubToWikiTests(unittest.TestCase):
             self.assertNotIn("provider", first_batch)
             self.assertNotIn("model", first_batch)
 
+    def test_pipeline_rebuilds_invalid_chunk_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            epub_path = tmp_path / "tiny.epub"
+            out_dir = tmp_path / "book-output"
+            _write_tiny_epub(epub_path)
+
+            first = subprocess.run(
+                [
+                    "python3",
+                    str(_PIPELINE_SCRIPT),
+                    str(epub_path),
+                    "--output",
+                    str(out_dir),
+                    "--language",
+                    "zh",
+                    "--chunk-size",
+                    "14",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+
+            chunk_manifest_path = out_dir / ".understand-anything" / "intermediate" / "chunks-manifest.json"
+            chunk_manifest_path.write_text("{broken json", encoding="utf-8")
+
+            second = subprocess.run(
+                [
+                    "python3",
+                    str(_PIPELINE_SCRIPT),
+                    str(epub_path),
+                    "--output",
+                    str(out_dir),
+                    "--language",
+                    "zh",
+                    "--chunk-size",
+                    "14",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+            self.assertIn("[cache] chunks invalid; rebuilding", second.stdout)
+            rebuilt = json.loads(chunk_manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(rebuilt["version"], 1)
+            self.assertEqual(rebuilt["chunk_size"], 14)
+            self.assertEqual(rebuilt["source_hash"], json.loads((out_dir / ".understand-anything" / "intermediate" / "book-manifest.json").read_text(encoding="utf-8"))["source"]["hash"])
+
+    def test_pipeline_rebuilds_invalid_analysis_batch_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            epub_path = tmp_path / "tiny.epub"
+            out_dir = tmp_path / "book-output"
+            _write_tiny_epub(epub_path)
+
+            first = subprocess.run(
+                [
+                    "python3",
+                    str(_PIPELINE_SCRIPT),
+                    str(epub_path),
+                    "--output",
+                    str(out_dir),
+                    "--language",
+                    "zh",
+                    "--chunk-size",
+                    "14",
+                    "--batch-size",
+                    "2",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+
+            batch_manifest_path = out_dir / ".understand-anything" / "intermediate" / "analysis-batches-manifest.json"
+            batch_manifest_path.write_text('{"version": 1, "batch_size": 2, "batches": []}', encoding="utf-8")
+
+            second = subprocess.run(
+                [
+                    "python3",
+                    str(_PIPELINE_SCRIPT),
+                    str(epub_path),
+                    "--output",
+                    str(out_dir),
+                    "--language",
+                    "zh",
+                    "--chunk-size",
+                    "14",
+                    "--batch-size",
+                    "2",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+            self.assertIn("[cache] chunks valid; reusing", second.stdout)
+            self.assertIn("[cache] analysis batches invalid; rebuilding", second.stdout)
+            rebuilt = json.loads(batch_manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(rebuilt["version"], 1)
+            self.assertEqual(rebuilt["batch_size"], 2)
+            self.assertGreaterEqual(len(rebuilt["batches"]), 2)
+            self.assertEqual(rebuilt["chunk_ids"][0], "ch01-c001")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -82,6 +82,87 @@ def validate_graph(graph: dict[str, Any]) -> None:
         raise PipelineError(f"ERR_GRAPH_DANGLING_EDGES: {len(dangling)} dangling edges")
 
 
+def read_json_cache(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def validate_chunks_cache(cache: dict[str, Any], manifest: dict[str, Any], chunk_size: int) -> bool:
+    if cache.get("version") != 1:
+        return False
+    if cache.get("chunk_size") != chunk_size:
+        return False
+    if cache.get("source_hash") != manifest.get("source", {}).get("hash"):
+        return False
+    chunks = cache.get("chunks")
+    if not isinstance(chunks, list) or not chunks:
+        return False
+    required_ids = {chapter.get("id") for chapter in manifest.get("chapters", [])}
+    seen_ids: set[str] = set()
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            return False
+        if not isinstance(chunk.get("id"), str) or not chunk["id"]:
+            return False
+        if chunk.get("chapter_id") not in required_ids:
+            return False
+        if not isinstance(chunk.get("order"), int) or chunk["order"] < 1:
+            return False
+        if not isinstance(chunk.get("char_start"), int) or not isinstance(chunk.get("char_end"), int):
+            return False
+        if chunk["char_end"] <= chunk["char_start"]:
+            return False
+        if not isinstance(chunk.get("evidence_anchor"), str) or not chunk["evidence_anchor"]:
+            return False
+        chunk_path = Path(chunk.get("path", ""))
+        if not chunk_path.is_file():
+            return False
+        seen_ids.add(chunk["chapter_id"])
+    return required_ids.issubset(seen_ids)
+
+
+def validate_analysis_batches_cache(cache: dict[str, Any], chunks_manifest: dict[str, Any], batch_size: int) -> bool:
+    if cache.get("version") != 1:
+        return False
+    if cache.get("batch_size") != batch_size:
+        return False
+    if cache.get("source_hash") != chunks_manifest.get("source_hash"):
+        return False
+    expected_chunk_ids = [chunk.get("id") for chunk in chunks_manifest.get("chunks", [])]
+    if cache.get("chunk_ids") != expected_chunk_ids:
+        return False
+    batches = cache.get("batches")
+    if not isinstance(batches, list) or not batches:
+        return False
+    seen: list[str] = []
+    for batch in batches:
+        if not isinstance(batch, dict):
+            return False
+        batch_path = Path(batch.get("path", ""))
+        if not batch_path.is_file():
+            return False
+        payload = read_json_cache(batch_path)
+        if payload is None:
+            return False
+        if payload.get("kind") != "understand-book-analysis-batch":
+            return False
+        payload_chunks = payload.get("chunks")
+        if not isinstance(payload_chunks, list) or not payload_chunks:
+            return False
+        ids: list[str] = []
+        for chunk in payload_chunks:
+            if not isinstance(chunk, dict) or not isinstance(chunk.get("id"), str):
+                return False
+            ids.append(chunk["id"])
+        if ids != batch.get("chunk_ids"):
+            return False
+        seen.extend(ids)
+    return seen == expected_chunk_ids
+
+
 def split_text_into_chunks(text: str, chunk_size: int) -> list[tuple[int, int, str]]:
     if chunk_size < 1:
         raise PipelineError("ERR_CHUNK_SIZE_INVALID: chunk size must be positive")
@@ -99,6 +180,16 @@ def write_chapter_chunks(output_dir: Path, manifest: dict[str, Any], chunk_size:
     intermediate_dir = output_dir / ".understand-anything" / "intermediate"
     chunks_dir = intermediate_dir / "chunks"
     chunks_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = intermediate_dir / "chunks-manifest.json"
+
+    existing = read_json_cache(manifest_path) if manifest_path.is_file() else None
+    if existing is not None and validate_chunks_cache(existing, manifest, chunk_size):
+        print("[cache] chunks valid; reusing")
+        return manifest_path
+    if manifest_path.is_file():
+        print("[cache] chunks invalid; rebuilding")
+        shutil.rmtree(chunks_dir, ignore_errors=True)
+        chunks_dir.mkdir(parents=True, exist_ok=True)
 
     book = manifest.get("book", {})
     chunks: list[dict[str, Any]] = []
@@ -156,10 +247,10 @@ def write_chapter_chunks(output_dir: Path, manifest: dict[str, Any], chunk_size:
     chunk_manifest = {
         "version": 1,
         "chunk_size": chunk_size,
+        "source_hash": manifest.get("source", {}).get("hash"),
         "book": book,
         "chunks": chunks,
     }
-    manifest_path = intermediate_dir / "chunks-manifest.json"
     manifest_path.write_text(json.dumps(chunk_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return manifest_path
 
@@ -170,10 +261,24 @@ def write_analysis_batches(output_dir: Path, chunks_manifest_path: Path, languag
     intermediate_dir = output_dir / ".understand-anything" / "intermediate"
     batches_dir = intermediate_dir / "analysis-batches"
     batches_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = intermediate_dir / "analysis-batches-manifest.json"
 
-    chunks_manifest = json.loads(chunks_manifest_path.read_text(encoding="utf-8"))
+    chunks_manifest = read_json_cache(chunks_manifest_path)
+    if chunks_manifest is None:
+        raise PipelineError(f"ERR_CHUNKS_MANIFEST_INVALID: {chunks_manifest_path}")
+
+    existing = read_json_cache(manifest_path) if manifest_path.is_file() else None
+    if existing is not None and validate_analysis_batches_cache(existing, chunks_manifest, batch_size):
+        print("[cache] analysis batches valid; reusing")
+        return manifest_path
+    if manifest_path.is_file():
+        print("[cache] analysis batches invalid; rebuilding")
+        shutil.rmtree(batches_dir, ignore_errors=True)
+        batches_dir.mkdir(parents=True, exist_ok=True)
+
     chunks = chunks_manifest.get("chunks", [])
     book = chunks_manifest.get("book", {})
+    all_chunk_ids = [chunk.get("id") for chunk in chunks]
     batch_records: list[dict[str, Any]] = []
 
     for batch_index, start in enumerate(range(0, len(chunks), batch_size), start=1):
@@ -223,10 +328,11 @@ def write_analysis_batches(output_dir: Path, chunks_manifest_path: Path, languag
     manifest = {
         "version": 1,
         "batch_size": batch_size,
+        "source_hash": chunks_manifest.get("source_hash"),
+        "chunk_ids": all_chunk_ids,
         "book": book,
         "batches": batch_records,
     }
-    manifest_path = intermediate_dir / "analysis-batches-manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return manifest_path
 
