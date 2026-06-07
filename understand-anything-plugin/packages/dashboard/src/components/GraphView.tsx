@@ -745,6 +745,7 @@ function useLayerDetailTopology(): LayerDetailTopology & {
     graph,
     nodesById,
     activeLayerId,
+    activeContainerId,
     persona,
     diffMode,
     changedNodeIds,
