@@ -77,6 +77,7 @@ export interface CustomNodeData extends Record<string, unknown> {
   incomingCount?: number;
   outgoingCount?: number;
   tags?: string[];
+  dense?: boolean;
 }
 
 export type CustomFlowNode = Node<CustomNodeData, "custom">;
@@ -130,6 +131,33 @@ function CustomNodeComponent({
   const name = data.label ?? "unnamed";
   const truncatedName =
     name.length > 60 ? name.slice(0, 58) + "..." : name;
+
+  // Dense row variant for children of large expanded containers.
+  if (data.dense) {
+    return (
+      <div
+        className={`relative rounded-md bg-elevated border border-border-subtle ${extraClass} overflow-hidden cursor-pointer`}
+        style={{ width: 250, height: 44 }}
+        onClick={() => data.onNodeClick?.(id)}
+        title={data.summary}
+      >
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md"
+          style={{ backgroundColor: barColor }}
+        />
+        <Handle type="target" position={Position.Top} className="!opacity-0 !w-1 !h-1" />
+        <div className="pl-3 pr-2 h-full flex flex-col justify-center">
+          <div className="text-[12px] font-heading text-text-primary truncate" title={data.label}>
+            {name}
+          </div>
+          <div className="text-[9px] uppercase tracking-wider text-text-muted">
+            {data.nodeType}
+          </div>
+        </div>
+        <Handle type="source" position={Position.Bottom} className="!opacity-0 !w-1 !h-1" />
+      </div>
+    );
+  }
 
   return (
     <div

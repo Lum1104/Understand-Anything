@@ -14,7 +14,7 @@ export interface ContainerNodeData extends Record<string, unknown> {
   searchHitCount?: number;
   isDiffAffected: boolean;
   isFocusedViaChild: boolean;
-  onToggle: (containerId: string) => void;
+  onToggle: (containerId: string, name?: string) => void;
 }
 
 export type ContainerFlowNode = Node<ContainerNodeData, "container">;
@@ -40,7 +40,7 @@ function ContainerNodeComponent({ id, data, width, height }: NodeProps<Container
 
   const handleToggle = (e: React.SyntheticEvent) => {
     e.stopPropagation();
-    data.onToggle(data.containerId);
+    data.onToggle(data.containerId, data.name);
   };
 
   return (

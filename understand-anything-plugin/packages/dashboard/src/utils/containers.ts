@@ -83,6 +83,9 @@ function shouldFallbackToCommunity(
   // Redux slice folder like src/store/meetingTypes) — keep it as ONE named
   // container instead of splitting into anonymous Louvain communities.
   if (groups.size === 1 && rooted.length === 0) return false;
+  // A single folder covering the whole set is a meaningful unit — keep it
+  // as ONE named container instead of splitting into Louvain communities.
+  if (groups.size === 1 && rooted.length === 0) return false;
   const bucketCount = groups.size + (rooted.length > 0 ? 1 : 0);
   if (bucketCount < MIN_BUCKET_COUNT) return true;
   for (const ids of groups.values()) {
@@ -92,12 +95,47 @@ function shouldFallbackToCommunity(
   return false;
 }
 
+export interface PredefinedGroup {
+  id?: string;
+  name: string;
+  nodeIds: string[];
+}
+
+export function slug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9\u0400-\u04ff]+/gi, "-").replace(/^-+|-+$/g, "");
+}
+
 export function deriveContainers(
   nodes: GraphNode[],
   edges: GraphEdge[],
+  predefined?: PredefinedGroup[],
 ): DeriveResult {
   if (nodes.length === 0) {
     return { containers: [], ungrouped: [] };
+  }
+
+  // Manual grouping from the graph data (layer.containers) wins over
+  // folder/community derivation. Nodes not claimed by any group stay
+  // ungrouped — they render as standalone cards one level above.
+  if (predefined && predefined.length > 0) {
+    const present = new Set(nodes.map((n) => n.id));
+    const claimed = new Set<string>();
+    const containers: DerivedContainer[] = [];
+    for (const g of predefined) {
+      const ids = g.nodeIds.filter((id) => present.has(id) && !claimed.has(id));
+      if (ids.length === 0) continue; // singleton FEATURE containers are allowed
+      for (const id of ids) claimed.add(id);
+      containers.push({
+        id: g.id ?? `container:${slug(g.name)}`,
+        name: g.name,
+        nodeIds: ids,
+        strategy: "folder",
+      });
+    }
+    if (containers.length > 0) {
+      const ungrouped = nodes.map((n) => n.id).filter((id) => !claimed.has(id));
+      return { containers, ungrouped };
+    }
   }
 
   const { groups, rooted } = groupByFolder(nodes);
