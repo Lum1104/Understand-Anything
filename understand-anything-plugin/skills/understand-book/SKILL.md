@@ -1,7 +1,7 @@
 ---
 name: understand-book
-description: Convert an EPUB book into a chapter-aware wiki scaffold, LLM-ready analysis batches, and root knowledge graph for the dashboard.
-argument-hint: [book.epub] [--language <lang>] [--output <dir>] [--chunk-size <chars>] [--batch-size <chunks>]
+description: Convert an EPUB book into a chapter-aware wiki scaffold, LLM-ready analysis batches, optional LLM analysis results, and root knowledge graph for the dashboard.
+argument-hint: [book.epub] [--language <lang>] [--output <dir>] [--chunk-size <chars>] [--batch-size <chunks>] [--llm-provider deepseek|local-command]
 ---
 
 # /understand-book
@@ -59,7 +59,40 @@ Expected progress output:
 Done.
 ```
 
-### Phase 3: Verify output
+### Phase 3: Optional LLM batch analysis
+
+The deterministic pipeline stops after writing `analysis-batches/*.json`. To run LLM analysis, use the adapter runner.
+
+DeepSeek example:
+
+```bash
+DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" python3 <SKILL_DIR>/llm-adapters/run-analysis-batches.py \
+  <OUTPUT_DIR>/.understand-anything/intermediate/analysis-batches-manifest.json \
+  --provider deepseek \
+  --model deepseek-v4-flash
+```
+
+Local command example for tests or private models:
+
+```bash
+python3 <SKILL_DIR>/llm-adapters/run-analysis-batches.py \
+  <OUTPUT_DIR>/.understand-anything/intermediate/analysis-batches-manifest.json \
+  --provider local-command \
+  --command "python3 my-batch-analyzer.py" \
+  --model local-json-analyzer
+```
+
+Adapter contract:
+
+```text
+input:  analysis-batch-XXX.json on stdin for local-command, or DeepSeek chat completion payload
+output: <OUTPUT_DIR>/.understand-anything/intermediate/analysis-results/analysis-batch-XXX.result.json
+        <OUTPUT_DIR>/.understand-anything/intermediate/analysis-results-manifest.json
+```
+
+Do not write API keys into repo files. Use environment variables only.
+
+### Phase 4: Verify output
 
 Check these files exist:
 
@@ -79,7 +112,7 @@ Check these files exist:
 
 If validation fails, report the exact `ERR_*` message from the script and stop.
 
-### Phase 4: Open dashboard
+### Phase 5: Open dashboard
 
 Run:
 
