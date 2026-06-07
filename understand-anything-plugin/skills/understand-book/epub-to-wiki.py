@@ -164,7 +164,10 @@ def read_rootfile_path(zf: zipfile.ZipFile) -> str:
         data = zf.read(_CONTAINER)
     except KeyError as exc:
         raise EpubError("ERR_EPUB_PARSE_FAILED: META-INF/container.xml not found") from exc
-    root = ET.fromstring(data)
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError as exc:
+        raise EpubError("ERR_EPUB_PARSE_FAILED: META-INF/container.xml is not valid XML") from exc
     rootfile = root.find(f".//{_CONTAINER_NS}rootfile")
     if rootfile is None:
         rootfile = root.find(".//rootfile")
@@ -178,7 +181,10 @@ def parse_opf(zf: zipfile.ZipFile, opf_path: str) -> tuple[ET.Element, dict[str,
         opf_data = zf.read(opf_path)
     except KeyError as exc:
         raise EpubError(f"ERR_EPUB_PARSE_FAILED: OPF not found: {opf_path}") from exc
-    root = ET.fromstring(opf_data)
+    try:
+        root = ET.fromstring(opf_data)
+    except ET.ParseError as exc:
+        raise EpubError(f"ERR_EPUB_PARSE_FAILED: OPF is not valid XML: {opf_path}") from exc
     base = posixpath.dirname(opf_path)
 
     items: dict[str, ManifestItem] = {}
@@ -240,6 +246,12 @@ def write_markdown(path: Path, content: str) -> None:
     path.write_text(content.rstrip() + "\n", encoding="utf-8")
 
 
+def reset_generated_dir(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
 def ingest_epub(input_path: Path, output_dir: Path, language: str) -> dict[str, Any]:
     if not input_path.is_file():
         raise EpubError(f"ERR_INPUT_NOT_FOUND: {input_path}")
@@ -254,95 +266,104 @@ def ingest_epub(input_path: Path, output_dir: Path, language: str) -> dict[str, 
     chapter_html_dir = intermediate_dir / "html"
     asset_dir = raw_dir / "assets"
 
-    for directory in [raw_dir, chapter_wiki_dir, intermediate_dir, chapter_text_dir, chapter_html_dir, asset_dir]:
-        directory.mkdir(parents=True, exist_ok=True)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    wiki_dir.mkdir(parents=True, exist_ok=True)
+    reset_generated_dir(chapter_wiki_dir)
+    reset_generated_dir(chapter_text_dir)
+    reset_generated_dir(chapter_html_dir)
+    reset_generated_dir(asset_dir)
+    shutil.rmtree(wiki_dir / ".understand-anything", ignore_errors=True)
+    intermediate_dir.mkdir(parents=True, exist_ok=True)
 
     raw_copy = raw_dir / input_path.name
     shutil.copy2(input_path, raw_copy)
 
-    with zipfile.ZipFile(input_path) as zf:
-        opf_path = read_rootfile_path(zf)
-        opf_root, items, spine = parse_opf(zf, opf_path)
-        toc = parse_nav_toc(zf, items)
+    try:
+        with zipfile.ZipFile(input_path) as zf:
+            opf_path = read_rootfile_path(zf)
+            opf_root, items, spine = parse_opf(zf, opf_path)
+            toc = parse_nav_toc(zf, items)
 
-        title = xml_text(opf_root, f"{_DC_NS}title") or xml_text(opf_root, "title") or input_path.stem
-        authors = xml_texts(opf_root, f"{_DC_NS}creator") or xml_texts(opf_root, "creator")
-        language = language or xml_text(opf_root, f"{_DC_NS}language") or xml_text(opf_root, "language") or "unknown"
-        publisher = xml_text(opf_root, f"{_DC_NS}publisher") or xml_text(opf_root, "publisher")
-        published_at = xml_text(opf_root, f"{_DC_NS}date") or xml_text(opf_root, "date")
-        identifier = xml_text(opf_root, f"{_DC_NS}identifier") or xml_text(opf_root, "identifier")
+            title = xml_text(opf_root, f"{_DC_NS}title") or xml_text(opf_root, "title") or input_path.stem
+            authors = xml_texts(opf_root, f"{_DC_NS}creator") or xml_texts(opf_root, "creator")
+            language = language or xml_text(opf_root, f"{_DC_NS}language") or xml_text(opf_root, "language") or "unknown"
+            publisher = xml_text(opf_root, f"{_DC_NS}publisher") or xml_text(opf_root, "publisher")
+            published_at = xml_text(opf_root, f"{_DC_NS}date") or xml_text(opf_root, "date")
+            identifier = xml_text(opf_root, f"{_DC_NS}identifier") or xml_text(opf_root, "identifier")
 
-        chapters: list[dict[str, Any]] = []
-        toc_by_href = {t["href"].split("#", 1)[0]: t["title"] for t in toc if t.get("href")}
+            chapters: list[dict[str, Any]] = []
+            toc_by_href = {t["href"].split("#", 1)[0]: t["title"] for t in toc if t.get("href")}
 
-        for index, idref in enumerate(spine, start=1):
-            item = items.get(idref)
-            if not item or "html" not in item.media_type:
-                continue
-            try:
-                html_text = zf.read(item.abs_path).decode("utf-8", errors="replace")
-            except KeyError:
-                continue
+            for index, idref in enumerate(spine, start=1):
+                item = items.get(idref)
+                if not item or "html" not in item.media_type:
+                    continue
+                try:
+                    html_text = zf.read(item.abs_path).decode("utf-8", errors="replace")
+                except KeyError:
+                    continue
 
-            text, h1 = extract_html_text(html_text)
-            if not text:
-                continue
+                text, h1 = extract_html_text(html_text)
+                if not text:
+                    continue
 
-            chapter_id = f"ch{len(chapters) + 1:02d}"
-            title_from_toc = toc_by_href.get(item.href) or toc_by_href.get(item.abs_path)
-            chapter_title = safe_title(h1 or title_from_toc or f"Chapter {len(chapters) + 1}", f"Chapter {len(chapters) + 1}")
+                chapter_id = f"ch{len(chapters) + 1:02d}"
+                title_from_toc = toc_by_href.get(item.href) or toc_by_href.get(item.abs_path)
+                chapter_title = safe_title(h1 or title_from_toc or f"Chapter {len(chapters) + 1}", f"Chapter {len(chapters) + 1}")
 
-            text_path = chapter_text_dir / f"{chapter_id}.txt"
-            html_path = chapter_html_dir / f"{chapter_id}.html"
-            wiki_path = chapter_wiki_dir / f"{chapter_id}.md"
-            text_path.write_text(text, encoding="utf-8")
-            html_path.write_text(html_text, encoding="utf-8")
-            write_markdown(
-                wiki_path,
-                f"# {chapter_title}\n\n"
-                f"## Source\n\n"
-                f"- Chapter ID: `{chapter_id}`\n"
-                f"- EPUB href: `{item.href}`\n\n"
-                f"## Text\n\n{text}",
-            )
+                text_path = chapter_text_dir / f"{chapter_id}.txt"
+                html_path = chapter_html_dir / f"{chapter_id}.html"
+                wiki_path = chapter_wiki_dir / f"{chapter_id}.md"
+                text_path.write_text(text, encoding="utf-8")
+                html_path.write_text(html_text, encoding="utf-8")
+                write_markdown(
+                    wiki_path,
+                    f"# {chapter_title}\n\n"
+                    f"## Source\n\n"
+                    f"- Chapter ID: `{chapter_id}`\n"
+                    f"- EPUB href: `{item.href}`\n\n"
+                    f"## Text\n\n{text}",
+                )
 
-            chapters.append(
-                {
-                    "id": chapter_id,
-                    "order": len(chapters) + 1,
-                    "title": chapter_title,
-                    "href": item.href,
-                    "text_path": str(text_path),
-                    "html_path": str(html_path),
-                    "wiki_path": str(wiki_path),
-                    "word_count": len(re.findall(r"\w+", text)),
-                    "char_count": len(text),
-                }
-            )
+                chapters.append(
+                    {
+                        "id": chapter_id,
+                        "order": len(chapters) + 1,
+                        "title": chapter_title,
+                        "href": item.href,
+                        "text_path": str(text_path),
+                        "html_path": str(html_path),
+                        "wiki_path": str(wiki_path),
+                        "word_count": len(re.findall(r"\w+", text)),
+                        "char_count": len(text),
+                    }
+                )
 
-        if not chapters:
-            raise EpubError("ERR_NO_CHAPTERS_FOUND: no readable spine XHTML chapters found")
+            if not chapters:
+                raise EpubError("ERR_NO_CHAPTERS_FOUND: no readable spine XHTML chapters found")
 
-        assets: list[dict[str, Any]] = []
-        for item in items.values():
-            if not item.media_type.startswith(_IMAGE_MEDIA_PREFIX):
-                continue
-            try:
-                data = zf.read(item.abs_path)
-            except KeyError:
-                continue
-            out_name = posixpath.basename(item.href) or f"asset-{len(assets) + 1}"
-            out_path = asset_dir / out_name
-            out_path.write_bytes(data)
-            assets.append(
-                {
-                    "type": "image",
-                    "href": item.href,
-                    "media_type": item.media_type,
-                    "output_path": str(out_path),
-                }
-            )
+            assets: list[dict[str, Any]] = []
+            for item in items.values():
+                if not item.media_type.startswith(_IMAGE_MEDIA_PREFIX):
+                    continue
+                try:
+                    data = zf.read(item.abs_path)
+                except KeyError:
+                    continue
+                out_name = posixpath.basename(item.href) or f"asset-{len(assets) + 1}"
+                out_path = asset_dir / out_name
+                out_path.write_bytes(data)
+                assets.append(
+                    {
+                        "type": "image",
+                        "href": item.href,
+                        "media_type": item.media_type,
+                        "output_path": str(out_path),
+                    }
+                )
 
+    except zipfile.BadZipFile as exc:
+        raise EpubError(f"ERR_EPUB_INVALID: not a valid EPUB zip: {input_path}") from exc
     index_lines = [
         f"# {title}",
         "",
@@ -361,6 +382,19 @@ def ingest_epub(input_path: Path, output_dir: Path, language: str) -> dict[str, 
         ]
     )
     write_markdown(wiki_dir / "index.md", "\n".join(index_lines))
+    write_markdown(
+        wiki_dir / "log.md",
+        "\n".join(
+            [
+                "# Book Ingestion Log",
+                "",
+                f"## [{datetime.now(timezone.utc).date().isoformat()}] ingest | {title}",
+                "",
+                f"- Source: `{input_path.name}`",
+                f"- Chapters: {len(chapters)}",
+            ]
+        ),
+    )
 
     manifest = {
         "version": 1,

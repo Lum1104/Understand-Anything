@@ -147,6 +147,38 @@ print(json.dumps({
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("ERR_DEEPSEEK_API_KEY_MISSING", result.stderr + result.stdout)
 
+    def test_adapter_rejects_unsafe_batch_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            manifest_path = _write_batch_fixture(tmp_path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["batches"][0]["id"] = "../pwned"
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            fake_llm = tmp_path / "fake_llm.py"
+            fake_llm.write_text("import json; print(json.dumps({'summary': 'ok'}))\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(_ADAPTER_SCRIPT),
+                    str(manifest_path),
+                    "--provider",
+                    "local-command",
+                    "--command",
+                    f"{sys.executable} {fake_llm}",
+                    "--model",
+                    "fake-llm",
+                ],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERR_BATCH_ID_INVALID", result.stderr + result.stdout)
+            self.assertFalse((tmp_path / "pwned.result.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

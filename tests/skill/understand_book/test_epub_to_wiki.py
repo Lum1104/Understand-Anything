@@ -74,6 +74,41 @@ def _write_tiny_epub(path: Path) -> None:
         zf.writestr("OEBPS/images/cover.png", b"\x89PNG\r\n\x1a\n")
 
 
+def _write_single_chapter_epub(path: Path) -> None:
+    """Create a tiny valid EPUB 3 archive with one spine chapter."""
+    container_xml = """<?xml version='1.0' encoding='utf-8'?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>
+"""
+    opf = """<?xml version='1.0' encoding='utf-8'?>
+<package version="3.0" unique-identifier="bookid" xmlns="http://www.idpf.org/2007/opf">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="bookid">urn:uuid:single-book</dc:identifier>
+    <dc:title>Single Test Book</dc:title>
+    <dc:creator>Draco</dc:creator>
+    <dc:language>zh</dc:language>
+  </metadata>
+  <manifest>
+    <item id="ch1" href="chapters/ch1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="ch1"/>
+  </spine>
+</package>
+"""
+    ch1 = """<!doctype html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>唯一章节</title></head><body>
+<h1>唯一章节</h1><p>第二次运行应该清理旧章节。</p>
+</body></html>"""
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        zf.writestr("META-INF/container.xml", container_xml)
+        zf.writestr("OEBPS/content.opf", opf)
+        zf.writestr("OEBPS/chapters/ch1.xhtml", ch1)
+
+
 class EpubToWikiTests(unittest.TestCase):
     def test_epub_to_wiki_writes_manifest_chapters_and_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -374,6 +409,61 @@ class EpubToWikiTests(unittest.TestCase):
             self.assertEqual(rebuilt["batch_size"], 2)
             self.assertGreaterEqual(len(rebuilt["batches"]), 2)
             self.assertEqual(rebuilt["chunk_ids"][0], "ch01-c001")
+
+    def test_pipeline_rerun_cleans_stale_generated_chapters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            first_epub = tmp_path / "tiny.epub"
+            second_epub = tmp_path / "single.epub"
+            out_dir = tmp_path / "book-output"
+            _write_tiny_epub(first_epub)
+            _write_single_chapter_epub(second_epub)
+
+            first = subprocess.run(
+                ["python3", str(_PIPELINE_SCRIPT), str(first_epub), "--output", str(out_dir), "--language", "zh"],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            self.assertTrue((out_dir / "wiki" / "chapters" / "ch02.md").is_file())
+
+            second = subprocess.run(
+                ["python3", str(_PIPELINE_SCRIPT), str(second_epub), "--output", str(out_dir), "--language", "zh"],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+            self.assertFalse((out_dir / "wiki" / "chapters" / "ch02.md").exists())
+            manifest = json.loads((out_dir / ".understand-anything" / "intermediate" / "book-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual([chapter["id"] for chapter in manifest["chapters"]], ["ch01"])
+            graph = json.loads((out_dir / ".understand-anything" / "knowledge-graph.json").read_text(encoding="utf-8"))
+            graph_text = json.dumps(graph, ensure_ascii=False)
+            self.assertNotIn("ch02", graph_text)
+            self.assertNotIn("第二章 回声", graph_text)
+
+    def test_epub_to_wiki_reports_invalid_zip_without_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            epub_path = tmp_path / "broken.epub"
+            out_dir = tmp_path / "book-output"
+            epub_path.write_text("not a real epub", encoding="utf-8")
+
+            result = subprocess.run(
+                ["python3", str(_SCRIPT), str(epub_path), "--output", str(out_dir), "--language", "zh"],
+                cwd=_REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            combined = result.stderr + result.stdout
+            self.assertIn("ERR_EPUB_INVALID", combined)
+            self.assertNotIn("Traceback", combined)
 
 
 if __name__ == "__main__":

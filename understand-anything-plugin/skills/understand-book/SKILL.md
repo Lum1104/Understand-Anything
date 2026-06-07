@@ -143,4 +143,6 @@ Run:
 - The deterministic path uses Python stdlib only: zip, XML, HTML parsing, JSON, subprocess.
 - This pipeline produces a structural book graph plus deterministic LLM-ready `analysis-batches/*.json`. It still does not call an LLM.
 - Evidence comes from generated chapter text in EPUB spine order, then from stable chunk files with `evidence_anchor`.
+- Re-running into the same output directory clears generated chapter/html/asset/wiki graph files before rebuilding, so stale EPUB chapters cannot leak into the graph.
 - Chunk and analysis-batch cache files are parsed and schema-validated before reuse; invalid cache is rebuilt instead of trusted blindly.
+- `local-command` executes the command you provide. Use it only with trusted local commands and sanitized manifests.

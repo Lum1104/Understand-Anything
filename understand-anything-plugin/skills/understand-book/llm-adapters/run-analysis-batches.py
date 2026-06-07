@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -22,6 +23,9 @@ from typing import Any
 
 class AdapterError(RuntimeError):
     """Human-readable adapter error."""
+
+
+_SAFE_BATCH_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -44,8 +48,11 @@ def validate_batches_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     for batch in batches:
         if not isinstance(batch, dict):
             raise AdapterError("ERR_BATCHES_MANIFEST_INVALID: batch must be an object")
-        if not isinstance(batch.get("id"), str) or not batch["id"]:
+        batch_id = batch.get("id")
+        if not isinstance(batch_id, str) or not batch_id:
             raise AdapterError("ERR_BATCHES_MANIFEST_INVALID: batch id missing")
+        if not _SAFE_BATCH_ID.fullmatch(batch_id):
+            raise AdapterError(f"ERR_BATCH_ID_INVALID: {batch_id}")
         batch_path = Path(batch.get("path", ""))
         if not batch_path.is_file():
             raise AdapterError(f"ERR_BATCH_NOT_FOUND: {batch_path}")
