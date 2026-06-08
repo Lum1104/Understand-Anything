@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 import { dirname, resolve, extname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import type {
   AnalyzerPlugin,
   StructuralAnalysis,
@@ -12,6 +14,29 @@ import { builtinExtractors } from "./extractors/index.js";
 
 // web-tree-sitter uses CJS internally; we need createRequire for .wasm resolution
 const require = createRequire(import.meta.url);
+
+/**
+ * Resolve the path to a bundled grammar WASM kept inside this package under
+ * `wasm-grammars/`. Used as a fallback when the npm-published grammar is
+ * missing or its WASM is incompatible with the current web-tree-sitter ABI
+ * (e.g. tree-sitter-dart 1.0.0 ships an outdated dylink format).
+ *
+ * Returns null when no bundled copy is available for the given filename.
+ */
+function bundledWasmPath(wasmFile: string): string | null {
+  // import.meta.url resolves to dist/plugins/tree-sitter-plugin.js at runtime
+  // and src/plugins/tree-sitter-plugin.ts during tests. The bundle dir lives
+  // two levels up from either location (dist/plugins/.. → dist/..; same for src).
+  const here = fileURLToPath(import.meta.url);
+  const candidates = [
+    resolve(dirname(here), "..", "..", "wasm-grammars", wasmFile),
+    resolve(dirname(here), "..", "wasm-grammars", wasmFile),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
 type TreeSitterParser = import("web-tree-sitter").Parser;
 type TreeSitterLanguage = import("web-tree-sitter").Language;
@@ -139,30 +164,53 @@ export class TreeSitterPlugin implements AnalyzerPlugin {
         if (!config.treeSitter) continue;
 
         const loadGrammar = async () => {
+          // Try the npm-published grammar first; if its WASM is missing or
+          // fails to load (e.g. the npm package ships an outdated dylink
+          // format), fall back to a copy bundled inside this package under
+          // `wasm-grammars/`.
+          const tryLoad = async (path: string) => LanguageCls.load(path);
+          const bundledPath = bundledWasmPath(config.treeSitter!.wasmFile);
+
+          let loaded = false;
           try {
             const wasmPath = require.resolve(
               `${config.treeSitter!.wasmPackage}/${config.treeSitter!.wasmFile}`,
             );
-            const lang = await LanguageCls.load(wasmPath);
+            const lang = await tryLoad(wasmPath);
             this._languages.set(config.id, lang);
-
-            // Special handling for TypeScript: also load TSX grammar
-            if (config.id === "typescript") {
-              try {
-                const tsxWasm = require.resolve(
-                  `${config.treeSitter!.wasmPackage}/tree-sitter-tsx.wasm`,
-                );
-                const tsxLang = await LanguageCls.load(tsxWasm);
-                this._languages.set("tsx", tsxLang);
-              } catch {
-                // TSX grammar not available; .tsx files will fall back to TS grammar
-              }
-            }
+            loaded = true;
           } catch {
-            // Grammar not available — this language will be skipped gracefully
+            // Will try bundled fallback below.
+          }
+
+          if (!loaded && bundledPath && existsSync(bundledPath)) {
+            try {
+              const lang = await tryLoad(bundledPath);
+              this._languages.set(config.id, lang);
+              loaded = true;
+            } catch {
+              // fall through to debug log
+            }
+          }
+
+          if (!loaded) {
             console.debug?.(
               `tree-sitter: Could not load grammar for ${config.id}, skipping structural analysis`,
             );
+            return;
+          }
+
+          // Special handling for TypeScript: also load TSX grammar
+          if (config.id === "typescript") {
+            try {
+              const tsxWasm = require.resolve(
+                `${config.treeSitter!.wasmPackage}/tree-sitter-tsx.wasm`,
+              );
+              const tsxLang = await tryLoad(tsxWasm);
+              this._languages.set("tsx", tsxLang);
+            } catch {
+              // TSX grammar not available; .tsx files will fall back to TS grammar
+            }
           }
         };
 
