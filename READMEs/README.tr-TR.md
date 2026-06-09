@@ -198,7 +198,7 @@ iwr -useb https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/ins
 
 Kurulum betiği depoyu `~/.understand-anything/repo` dizinine klonlar ve seçilen platform için uygun sembolik bağlantıları oluşturur. Sonrasında CLI/IDE'ni yeniden başlat.
 
-- Desteklenen `<platform>` değerleri: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`
+- Desteklenen `<platform>` değerleri: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `codeflicker`
 - Daha sonra güncelle: `./install.sh --update`
 - Kaldır: `./install.sh --uninstall <platform>`
 
@@ -238,6 +238,7 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Hermes | ✅ Destekleniyor | `install.sh hermes` |
 | Cline | ✅ Destekleniyor | `install.sh cline` |
 | KIMI CLI | ✅ Destekleniyor | `install.sh kimi` |
+| CodeFlicker | ✅ Destekleniyor | `install.sh codeflicker` |
 
 ---
 
