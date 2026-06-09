@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Discord コミュニティに参加 &rarr;</a></strong>
+  <strong>💬 <a href="https://github.com/Lum1104/Understand-Anything/discussions">GitHub のディスカッションに参加 &rarr;</a></strong>
   <br />
   <em>質問・作品の共有・コミュニティとの交流はこちらから。</em>
 </p>

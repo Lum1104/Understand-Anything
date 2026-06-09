@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Присоединяйтесь к сообществу в Discord &rarr;</a></strong>
+  <strong>💬 <a href="https://github.com/Lum1104/Understand-Anything/discussions">Присоединяйтесь к обсуждению на GitHub &rarr;</a></strong>
   <br />
   <em>Задавайте вопросы, делитесь тем, что вы построили, получайте помощь от сообщества.</em>
 </p>

@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">加入 Discord 社区 &rarr;</a></strong>
+  <strong>💬 <a href="https://github.com/Lum1104/Understand-Anything/discussions">加入 GitHub 讨论 &rarr;</a></strong>
   <br />
   <em>来提问、分享你的项目、和社区一起讨论。</em>
 </p>

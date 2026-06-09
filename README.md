@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Join the Discord community &rarr;</a></strong>
+  <strong>💬 <a href="https://github.com/Lum1104/Understand-Anything/discussions">Join the discussion on GitHub &rarr;</a></strong>
   <br />
   <em>Ask questions, share what you've built, get help from the community.</em>
 </p>

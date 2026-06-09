@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Discord 커뮤니티 참여하기 &rarr;</a></strong>
+  <strong>💬 <a href="https://github.com/Lum1104/Understand-Anything/discussions">GitHub 토론 참여하기 &rarr;</a></strong>
   <br />
   <em>질문하고, 만든 것을 공유하고, 커뮤니티의 도움을 받으세요.</em>
 </p>
