@@ -33,12 +33,6 @@
   <img src="assets/hero.png" alt="Understand Anything — Turn any codebase into an interactive knowledge graph" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Join the Discord community &rarr;</a></strong>
-  <br />
-  <em>Ask questions, share what you've built, get help from the community.</em>
-</p>
-
 ---
 
 **You just joined a new team. The codebase is 200,000 lines of code. Where do you even start?**

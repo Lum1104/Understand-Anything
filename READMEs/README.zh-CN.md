@@ -30,12 +30,6 @@
   <img src="../assets/hero.png" alt="Understand Anything — 将任何代码库转换为交互式知识图谱" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">加入 Discord 社区 &rarr;</a></strong>
-  <br />
-  <em>来提问、分享你的项目、和社区一起讨论。</em>
-</p>
-
 ---
 
 **当你刚加入一个新团队，面对 20 万行代码，你从哪里开始？**

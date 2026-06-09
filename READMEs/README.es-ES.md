@@ -30,12 +30,6 @@
   <img src="../assets/hero.png" alt="Understand Anything — Convierte cualquier código fuente en un grafo de conocimiento interactivo" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Únete a la comunidad de Discord &rarr;</a></strong>
-  <br />
-  <em>Pregunta, comparte lo que construyes y recibe ayuda de la comunidad.</em>
-</p>
-
 ---
 
 **Acabas de unirte a un nuevo equipo. El código tiene 200,000 líneas. ¿Por dónde empiezas?**

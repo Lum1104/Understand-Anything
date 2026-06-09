@@ -30,12 +30,6 @@
   <img src="../assets/hero.png" alt="Understand Anything — 將任何程式碼庫轉換為互動式知識圖譜" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">加入 Discord 社群 &rarr;</a></strong>
-  <br />
-  <em>來提問、分享你的專案、和社群一起討論。</em>
-</p>
-
 ---
 
 **當你剛加入一個新團隊，面對 20 萬行程式碼，你從哪裡開始？**

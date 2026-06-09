@@ -31,12 +31,6 @@
   <img src="../assets/hero.png" alt="Understand Anything — Herhangi bir kod tabanını interaktif bir bilgi grafiğine dönüştür" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Discord topluluğuna katıl &rarr;</a></strong>
-  <br />
-  <em>Sorular sor, yaptıklarını paylaş, topluluktan yardım al.</em>
-</p>
-
 ---
 
 **Yeni bir ekibe katıldın. Kod tabanı 200.000 satır kod. Nereden başlayacaksın bile bilemiyorsun?**

@@ -30,12 +30,6 @@
   <img src="../assets/hero.png" alt="Understand Anything — 모든 코드베이스를 인터랙티브 지식 그래프로 변환" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Discord 커뮤니티 참여하기 &rarr;</a></strong>
-  <br />
-  <em>질문하고, 만든 것을 공유하고, 커뮤니티의 도움을 받으세요.</em>
-</p>
-
 ---
 
 **새 팀에 합류했습니다. 코드베이스가 20만 줄입니다. 어디서부터 시작하시겠습니까?**

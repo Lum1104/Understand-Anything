@@ -31,12 +31,6 @@
   <img src="../assets/hero.png" alt="Understand Anything — あらゆるコードベースをインタラクティブなナレッジグラフに変換" width="800" />
 </p>
 
-<p align="center">
-  <strong>💬 <a href="https://discord.gg/pydat66RY">Discord コミュニティに参加 &rarr;</a></strong>
-  <br />
-  <em>質問・作品の共有・コミュニティとの交流はこちらから。</em>
-</p>
-
 ---
 
 **新しいチームに参加したばかり。コードベースは20万行。どこから手をつければいいのか？**
