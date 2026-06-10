@@ -40,6 +40,7 @@ hermes|$HOME/.hermes/skills|folder
 cline|$HOME/.cline/skills|folder
 kimi|$HOME/.kimi/skills|folder
 trae|$HOME/.trae/skills|per-skill
+kiro|$HOME/.kiro/skills|per-skill
 EOF
 }
 
@@ -189,11 +190,40 @@ cmd_install() {
   printf -- '→ Linking universal plugin root\n'
   link_plugin_root
 
+  if [[ "$id" == "kiro" ]]; then
+    printf -- '→ Creating Kiro agent configuration\n'
+    mkdir -p "$HOME/.kiro/agents"
+    local plugin_root="$REPO_DIR/understand-anything-plugin"
+    cat > "$HOME/.kiro/agents/understand.json" <<KIROEOF
+{
+  "name": "understand",
+  "description": "Analyze codebase into interactive knowledge graph — Understand Anything",
+  "prompt": "file://$plugin_root/skills/understand/SKILL.md",
+  "tools": ["read", "write", "shell", "grep", "glob", "code", "subagent"],
+  "resources": [
+    "file://$plugin_root/agents/project-scanner.md",
+    "file://$plugin_root/agents/file-analyzer.md",
+    "file://$plugin_root/agents/architecture-analyzer.md",
+    "file://$plugin_root/agents/tour-builder.md",
+    "file://$plugin_root/agents/graph-reviewer.md",
+    "file://$plugin_root/agents/assemble-reviewer.md",
+    "file://$plugin_root/agents/domain-analyzer.md"
+  ]
+}
+KIROEOF
+    printf '  ✓ %s\n' "$HOME/.kiro/agents/understand.json"
+  fi
+
   printf '\n✓ Installed Understand-Anything for %s\n' "$id"
   printf '  Restart your CLI or IDE to pick up the skills.\n'
   if [[ "$id" == "vscode" ]]; then
     printf '\n  Tip: VS Code can also auto-discover the plugin by opening this repo\n'
     printf '       directly (it reads .copilot-plugin/plugin.json), no symlinks needed.\n'
+  fi
+  if [[ "$id" == "kiro" ]]; then
+    printf '\n  Tip: Kiro IDE can also auto-discover the plugin by opening this repo\n'
+    printf '       directly (it reads .kiro-plugin/plugin.json), no symlinks needed.\n'
+    printf '  Usage: kiro-cli chat --agent understand "Analyze this project"\n'
   fi
 }
 
@@ -206,6 +236,10 @@ cmd_uninstall() {
 
   printf -- '→ Removing skill links for %s\n' "$id"
   unlink_skills "$target" "$style"
+  if [[ "$id" == "kiro" && -f "$HOME/.kiro/agents/understand.json" ]]; then
+    rm -f "$HOME/.kiro/agents/understand.json"
+    printf '  ✓ removed %s\n' "$HOME/.kiro/agents/understand.json"
+  fi
   if [[ -L "$PLUGIN_LINK" ]]; then
     rm -f "$PLUGIN_LINK"
     printf '  ✓ removed %s\n' "$PLUGIN_LINK"
