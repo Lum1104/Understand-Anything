@@ -1135,6 +1135,89 @@ describe('extract-import-map.mjs — Rust resolver', () => {
     expect(result.status).toBe(0);
     expect(result.output.importMap['src/inner/mod.rs']).toEqual(['src/sibling.rs']);
   });
+
+  it('resolves cross-crate use other_crate::module::item', () => {
+    projectRoot = setupTree({
+      'Cargo.toml': `[workspace]\nresolver = "2"\nmembers = ["crates/*"]\n`,
+      'crates/core-utils/Cargo.toml': `[package]\nname = "test-core-utils"\nversion = "0.1.0"\n`,
+      'crates/core-utils/src/lib.rs': `pub mod math;\n`,
+      'crates/core-utils/src/math.rs': `pub fn add(a: i32, b: i32) -> i32 { a + b }\n`,
+      'crates/app/Cargo.toml':
+        `[package]\nname = "test-app"\nversion = "0.1.0"\n[dependencies]\ntest-core-utils = { path = "../core-utils" }\n`,
+      'crates/app/src/main.rs': `use test_core_utils::math::add;\nfn main() { let _ = add(1, 2); }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'crates/core-utils/Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'crates/core-utils/src/lib.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'crates/core-utils/src/math.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'crates/app/Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'crates/app/src/main.rs', language: 'rust', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // crate name `test_core_utils` (hyphens->underscores) maps to its src dir.
+    expect(result.output.importMap['crates/app/src/main.rs']).toEqual([
+      'crates/core-utils/src/math.rs',
+    ]);
+  });
+
+  it('resolves intra-crate crate:: when [lib] path overrides the crate root', () => {
+    projectRoot = setupTree({
+      'Cargo.toml': `[workspace]\nresolver = "2"\nmembers = ["crates/*"]\n`,
+      'crates/engine/Cargo.toml':
+        `[package]\nname = "test-engine"\nversion = "0.1.0"\n[lib]\npath = "src/mod.rs"\n`,
+      'crates/engine/src/mod.rs': `pub mod runner;\nuse crate::runner::Runner;\nfn boot() -> Runner { Runner }\n`,
+      'crates/engine/src/runner.rs': `pub struct Runner;\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'crates/engine/Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'crates/engine/src/mod.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'crates/engine/src/runner.rs', language: 'rust', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    // `use crate::runner::Runner;` resolves even though the crate root is
+    // src/mod.rs (not src/lib.rs); dedups with `mod runner;` to one edge.
+    expect(result.output.importMap['crates/engine/src/mod.rs']).toEqual([
+      'crates/engine/src/runner.rs',
+    ]);
+    // No "no crate root" warning should fire for this file.
+    expect(result.stderr).not.toContain('no crate root');
+  });
+
+  it('resolves bare-module use crate::<module>;', () => {
+    projectRoot = setupTree({
+      'Cargo.toml': `[package]\nname = "cu"\nversion = "0.1.0"\n`,
+      'src/lib.rs': `pub mod math;\npub mod text;\n`,
+      'src/math.rs': `pub fn add(a: i32, b: i32) -> i32 { a + b }\n`,
+      // bare module import: no `mod math;` here, so this is the ONLY path to
+      // the text.rs -> math.rs edge.
+      'src/text.rs': `use crate::math;\npub fn go(n: i32) -> i32 { math::add(n, n) }\n`,
+    });
+
+    const result = runScript(projectRoot, {
+      projectRoot,
+      files: [
+        { path: 'Cargo.toml', language: 'toml', fileCategory: 'config' },
+        { path: 'src/lib.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'src/math.rs', language: 'rust', fileCategory: 'code' },
+        { path: 'src/text.rs', language: 'rust', fileCategory: 'code' },
+      ],
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.output.importMap['src/text.rs']).toEqual(['src/math.rs']);
+  });
 });
 
 describe('extract-import-map.mjs — C/C++ resolver', () => {
