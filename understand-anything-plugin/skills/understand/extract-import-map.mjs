@@ -1331,19 +1331,33 @@ function probeRustModule(base, fileSet) {
  * inside `src/`, the next iteration up reaches the package dir and the
  * `<package>/src/lib.rs` probe catches it.
  */
-function findRustCrateSrc(importerDir, fileSet) {
+function findRustCrateSrc(importerDir, ctx) {
+  // Manifest-driven: return the crate srcDir (from Cargo.toml) that is the
+  // deepest ancestor of (or equal to) the importer. This honors [lib].path
+  // crate-root overrides that the lib.rs/main.rs probe below would miss.
+  if (ctx.rustCrateSrcDirs && ctx.rustCrateSrcDirs.size > 0) {
+    let best = null;
+    for (const srcDir of ctx.rustCrateSrcDirs) {
+      if (importerDir === srcDir || importerDir.startsWith(`${srcDir}/`)) {
+        if (best === null || srcDir.length > best.length) best = srcDir;
+      }
+    }
+    if (best !== null) return best;
+  }
+  // Fallback: probe for a conventional crate root when no manifest is present
+  // (single-file or non-Cargo layouts).
   const parts = importerDir.split('/').filter(Boolean);
   for (let i = parts.length; i >= 0; i--) {
     const ancestor = parts.slice(0, i).join('/');
     const childSrc = ancestor ? `${ancestor}/src` : 'src';
-    if (fileSet.has(`${childSrc}/lib.rs`) || fileSet.has(`${childSrc}/main.rs`)) {
+    if (ctx.fileSet.has(`${childSrc}/lib.rs`) || ctx.fileSet.has(`${childSrc}/main.rs`)) {
       return childSrc;
     }
   }
   return null;
 }
 
-export function resolveRustImport(rawImport, file, ctx) {
+export function resolveRustImport(rawImport, file, ctx, specifiers = []) {
   if (!rawImport || typeof rawImport !== 'string') return [];
   const src = rawImport.trim();
   if (!src) return [];
@@ -1353,16 +1367,15 @@ export function resolveRustImport(rawImport, file, ctx) {
   if (segments.length === 0) return [];
   const head = segments[0];
 
-  // External crates: anything not rooted at crate/super/self.
-  if (head !== 'crate' && head !== 'super' && head !== 'self') return [];
-
-  // Walk segments after the head to a base file path. We probe each
-  // successive prefix from longest to shortest so that `crate::a::b::Item`
-  // matches `a/b.rs` (with `Item` being a re-export inside) rather than
-  // failing because `a/b/Item.rs` doesn't exist.
+  // Resolve the base directory the rest of the path is anchored at:
+  //  - crate  -> this crate's src root (manifest-aware; honors [lib].path)
+  //  - super  -> one directory up from the importer
+  //  - self   -> the importer's own directory
+  //  - <crate name in the workspace> -> that crate's src root (cross-crate)
+  //  - anything else (std, third-party) -> external, unresolved
   let baseDir;
   if (head === 'crate') {
-    const crateSrc = findRustCrateSrc(importerDir, ctx.fileSet);
+    const crateSrc = findRustCrateSrc(importerDir, ctx);
     if (!crateSrc) {
       // Warn once per importer file (a single .rs file can have many
       // `use crate::...` statements; suppress duplicate warnings).
@@ -1379,25 +1392,40 @@ export function resolveRustImport(rawImport, file, ctx) {
     }
     baseDir = crateSrc;
   } else if (head === 'super') {
-    // Walk up one directory from the importer
     const parts = importerDir.split('/').filter(Boolean);
     if (parts.length === 0) return [];
     baseDir = parts.slice(0, -1).join('/');
-  } else {
-    // self::
+  } else if (head === 'self') {
     baseDir = importerDir;
+  } else if (ctx.rustCrates && ctx.rustCrates.has(head)) {
+    // Cross-crate: `use other_crate::module::Item;`
+    baseDir = ctx.rustCrates.get(head);
+  } else {
+    return [];
   }
 
   const rest = segments.slice(1);
-  // Try each prefix length from longest -> shortest. The empty rest case
-  // (e.g. bare `use crate;`) is unresolvable.
+  // Symbol/list imports with an explicit module path: probe each prefix from
+  // longest to shortest so `a::b::Item` matches `a/b.rs` (Item re-exported
+  // inside) rather than failing on a nonexistent `a/b/Item.rs`.
   for (let i = rest.length; i > 0; i--) {
     const prefix = rest.slice(0, i);
-    const base = baseDir
-      ? `${baseDir}/${prefix.join('/')}`
-      : prefix.join('/');
+    const base = baseDir ? `${baseDir}/${prefix.join('/')}` : prefix.join('/');
     const match = probeRustModule(base, ctx.fileSet);
     if (match) return [match];
+  }
+
+  // Bare-module import: `use crate::config;`, `use super::sibling;`,
+  // `use other_crate::thing;`. tree-sitter puts the module name in
+  // `specifiers`, not in `source`, so the loop above sees an empty `rest`.
+  // Probe each plain specifier as a module under baseDir.
+  if (rest.length === 0) {
+    for (const spec of specifiers) {
+      if (!spec || spec === '*' || spec === 'self') continue;
+      const base = baseDir ? `${baseDir}/${spec}` : spec;
+      const match = probeRustModule(base, ctx.fileSet);
+      if (match) return [match];
+    }
   }
   return [];
 }
@@ -1510,7 +1538,7 @@ function resolveImport(imp, file, ctx) {
     return resolvePhpImport(src, file, ctx);
   }
   if (lang === 'rust') {
-    return resolveRustImport(src, file, ctx);
+    return resolveRustImport(src, file, ctx, imp.specifiers);
   }
   if (lang === 'c' || lang === 'cpp') {
     return resolveCppImport(src, file, ctx);
