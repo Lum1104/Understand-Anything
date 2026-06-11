@@ -3,8 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "bin": "./bin/understand-dash.mjs",
   "scripts": {
     "dev": "vite",
+    "dashboard": "node bin/understand-dash.mjs",
     "build": "tsc -b && vite build",
     "build:demo": "tsc -b && vite build --config vite.config.demo.ts",
     "preview": "vite preview",

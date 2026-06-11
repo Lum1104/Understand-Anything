@@ -177,6 +177,26 @@ link_plugin_root() {
   fi
 }
 
+link_dashboard_cli() {
+  local bin_dir="$HOME/.local/bin"
+  local cli_src="$REPO_DIR/understand-anything-plugin/packages/dashboard/bin/understand-dash.mjs"
+  local cli_link="$bin_dir/understand-dash"
+
+  mkdir -p "$bin_dir"
+  if [[ -L "$cli_link" || -f "$cli_link" ]]; then
+    rm -f "$cli_link"
+  fi
+  ln -s "$cli_src" "$cli_link"
+  chmod +x "$cli_src"
+  printf '  ✓ %s → %s\n' "$cli_link" "$cli_src"
+
+  # Suggest adding ~/.local/bin to PATH if not already present
+  case ":${PATH:-}:" in
+    *:"$bin_dir":*) ;;
+    *) printf '  • Add %s to your PATH:\n    export PATH="%s:$PATH"\n' "$bin_dir" "$bin_dir" ;;
+  esac
+}
+
 cmd_install() {
   local id="$1"
   local row target style
@@ -189,6 +209,8 @@ cmd_install() {
   link_skills "$target" "$style"
   printf -- '→ Linking universal plugin root\n'
   link_plugin_root
+  printf -- '→ Installing dashboard CLI\n'
+  link_dashboard_cli
 
   printf '\n✓ Installed Understand-Anything for %s\n' "$id"
   printf '  Restart your CLI or IDE to pick up the skills.\n'
@@ -210,6 +232,11 @@ cmd_uninstall() {
   if [[ -L "$PLUGIN_LINK" ]]; then
     rm -f "$PLUGIN_LINK"
     printf '  ✓ removed %s\n' "$PLUGIN_LINK"
+  fi
+  local cli_link="$HOME/.local/bin/understand-dash"
+  if [[ -L "$cli_link" ]]; then
+    rm -f "$cli_link"
+    printf '  ✓ removed %s\n' "$cli_link"
   fi
   if [[ -d "$REPO_DIR" ]]; then
     printf '\nThe checkout at %s was kept (other platforms may still use it).\n' "$REPO_DIR"
