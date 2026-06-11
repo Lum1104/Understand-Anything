@@ -49,6 +49,7 @@
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-ruby": "^0.23.1",
     "tree-sitter-rust": "^0.24.0",
+    "tree-sitter-systemverilog": "^0.3.1",
     "tree-sitter-typescript": "^0.23.2",
     "web-tree-sitter": "^0.26.6",
     "yaml": "^2.8.3",

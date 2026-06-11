@@ -114,8 +114,23 @@ export {
   TerraformParser,
   MakefileParser,
   ShellParser,
+  SystemVerilogParser,
   registerAllParsers,
 } from "./plugins/parsers/index.js";
+export {
+  analyzeHdl,
+  type HdlAnalysis,
+  type HdlModule,
+  type HdlClass,
+  type HdlFunction,
+} from "./plugins/parsers/systemverilog-parser.js";
+export {
+  buildHdlGraph,
+  buildHdlGraphTreeSitter,
+  assembleHdlGraph,
+  type HdlFile,
+  type ParsedHdlFile,
+} from "./analyzer/hdl-graph.js";
 export {
   createIgnoreFilter,
   DEFAULT_IGNORE_PATTERNS,
